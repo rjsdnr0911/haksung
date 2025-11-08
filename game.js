@@ -508,6 +508,10 @@ function setupInputHandlers() {
         if (e.key === 'r' || e.key === 'R') {
             reload();
         }
+
+        if (e.key === 'f' || e.key === 'F') {
+            toggleFullscreen();
+        }
     });
 
     document.addEventListener('keyup', (e) => {
@@ -545,6 +549,21 @@ function updateAmmoUI() {
 function updateWaveUI() {
     document.getElementById('waveNumber').textContent = wave.current;
     document.getElementById('enemyCount').textContent = wave.enemiesAlive;
+}
+
+// ==================== Fullscreen ====================
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        // Enter fullscreen
+        document.documentElement.requestFullscreen().catch(err => {
+            console.log(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+    } else {
+        // Exit fullscreen
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
 }
 
 // ==================== Mobile Controls ====================

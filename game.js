@@ -88,6 +88,10 @@ const perkDatabase = [
 const ARENA_RADIUS = 15;
 let arena;
 
+// Weapon visuals
+let weaponModel;
+let laserSight;
+
 // Input handling
 let keys = {};
 let isPointerLocked = false;
@@ -194,7 +198,119 @@ function createScene() {
     skyboxMaterial.emissiveColor = new BABYLON.Color3(0.05, 0.05, 0.1);
     skybox.material = skyboxMaterial;
 
+    // Create weapon model
+    createWeaponModel(scene);
+
+    // Create laser sight
+    createLaserSight(scene);
+
     return scene;
+}
+
+// ==================== Weapon Visuals ====================
+function createWeaponModel(scene) {
+    // Create weapon parent (to group all parts)
+    weaponModel = new BABYLON.TransformNode("weaponModel", scene);
+
+    // Gun body (main part)
+    const body = BABYLON.MeshBuilder.CreateBox("gunBody", {
+        width: 0.15,
+        height: 0.15,
+        depth: 0.8
+    }, scene);
+    body.position = new BABYLON.Vector3(0.3, -0.2, 0.5);
+
+    const bodyMat = new BABYLON.StandardMaterial("bodyMat", scene);
+    bodyMat.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+    bodyMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+    body.material = bodyMat;
+    body.parent = weaponModel;
+
+    // Barrel
+    const barrel = BABYLON.MeshBuilder.CreateCylinder("barrel", {
+        diameter: 0.08,
+        height: 0.5,
+        tessellation: 16
+    }, scene);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position = new BABYLON.Vector3(0.3, -0.15, 0.75);
+
+    const barrelMat = new BABYLON.StandardMaterial("barrelMat", scene);
+    barrelMat.diffuseColor = new BABYLON.Color3(0.15, 0.15, 0.15);
+    barrelMat.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+    barrel.material = barrelMat;
+    barrel.parent = weaponModel;
+
+    // Handle
+    const handle = BABYLON.MeshBuilder.CreateBox("handle", {
+        width: 0.1,
+        height: 0.25,
+        depth: 0.15
+    }, scene);
+    handle.position = new BABYLON.Vector3(0.3, -0.35, 0.3);
+
+    const handleMat = new BABYLON.StandardMaterial("handleMat", scene);
+    handleMat.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+    handle.material = handleMat;
+    handle.parent = weaponModel;
+
+    // Magazine
+    const magazine = BABYLON.MeshBuilder.CreateBox("magazine", {
+        width: 0.08,
+        height: 0.2,
+        depth: 0.1
+    }, scene);
+    magazine.position = new BABYLON.Vector3(0.3, -0.42, 0.35);
+
+    const magMat = new BABYLON.StandardMaterial("magMat", scene);
+    magMat.diffuseColor = new BABYLON.Color3(0.15, 0.15, 0.15);
+    magazine.material = magMat;
+    magazine.parent = weaponModel;
+
+    // Attach weapon to camera
+    weaponModel.parent = camera;
+    weaponModel.position = new BABYLON.Vector3(0, 0, 0);
+}
+
+function createLaserSight(scene) {
+    // Create a thin line that extends from the gun
+    laserSight = BABYLON.MeshBuilder.CreateLines("laserSight", {
+        points: [
+            new BABYLON.Vector3(0, 0, 0),
+            new BABYLON.Vector3(0, 0, 100)
+        ],
+        updatable: true
+    }, scene);
+
+    laserSight.color = new BABYLON.Color3(1, 0, 0); // Red laser
+    laserSight.alpha = 0.6;
+    laserSight.isPickable = false;
+}
+
+function updateLaserSight() {
+    if (!laserSight || !camera) return;
+
+    // Raycast from camera
+    const ray = camera.getForwardRay(100);
+    const hit = scene.pickWithRay(ray, (mesh) => {
+        return mesh !== arena && !wave.enemies.includes(mesh) && mesh.name !== 'skyBox';
+    });
+
+    // Start from gun barrel position
+    const startPos = camera.position.add(new BABYLON.Vector3(0.3, -0.15, 0.5));
+    let endPos;
+
+    if (hit.pickedPoint) {
+        endPos = hit.pickedPoint;
+    } else {
+        endPos = ray.origin.add(ray.direction.scale(100));
+    }
+
+    // Update laser line
+    laserSight = BABYLON.MeshBuilder.CreateLines("laserSight", {
+        points: [startPos, endPos],
+        instance: laserSight
+    });
 }
 
 // ==================== Game Logic ====================
@@ -270,6 +386,9 @@ function updateGame() {
 
     // Update enemies
     updateEnemies(deltaTime);
+
+    // Update laser sight
+    updateLaserSight();
 
     // Regeneration perk
     if (player.hasRegen) {
@@ -366,14 +485,30 @@ function shoot() {
     player.weapon.lastShotTime = now;
     updateAmmoUI();
 
+    // Weapon recoil animation
+    if (weaponModel) {
+        const originalZ = weaponModel.position.z;
+        weaponModel.position.z -= 0.1;
+        setTimeout(() => {
+            if (weaponModel) weaponModel.position.z = originalZ;
+        }, 100);
+    }
+
     // Raycast from camera
     const ray = camera.getForwardRay(100);
     const hit = scene.pickWithRay(ray, (mesh) => {
         return wave.enemies.includes(mesh);
     });
 
-    // Visual bullet trace
-    createBulletTrace(camera.position, ray.direction);
+    // Calculate muzzle position (gun barrel tip)
+    const muzzleOffset = new BABYLON.Vector3(0.3, -0.15, 1.0);
+    const muzzlePos = camera.position.add(muzzleOffset);
+
+    // Visual bullet trace from muzzle
+    createBulletTrace(muzzlePos, ray.direction);
+
+    // Create muzzle flash
+    createMuzzleFlash(muzzlePos);
 
     if (hit.pickedMesh) {
         const enemy = hit.pickedMesh;
@@ -390,6 +525,21 @@ function createBulletTrace(origin, direction) {
 
     setTimeout(() => {
         trace.dispose();
+    }, 50);
+}
+
+function createMuzzleFlash(position) {
+    const flash = BABYLON.MeshBuilder.CreateSphere("muzzleFlash", {
+        diameter: 0.3
+    }, scene);
+    flash.position = position.clone();
+
+    const flashMat = new BABYLON.StandardMaterial("flashMat", scene);
+    flashMat.emissiveColor = new BABYLON.Color3(1, 0.8, 0);
+    flash.material = flashMat;
+
+    setTimeout(() => {
+        flash.dispose();
     }, 50);
 }
 

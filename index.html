@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FPS Defense Game</title>
+    <style>
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        #ui {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            color: white;
+            font-size: 16px;
+        }
+        #ui > * {
+            pointer-events: all;
+        }
+
+        /* Start Screen */
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #startScreen h1 {
+            font-size: 4rem;
+            margin-bottom: 2rem;
+            color: #ff4444;
+            text-shadow: 0 0 20px #ff4444;
+        }
+        #startScreen button {
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        #startScreen button:hover {
+            background: #ff6666;
+            transform: scale(1.1);
+        }
+        .controls {
+            margin-top: 3rem;
+            text-align: center;
+        }
+        .controls p {
+            margin: 0.5rem 0;
+            font-size: 1.1rem;
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            pointer-events: none;
+        }
+        #health {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+        .health-bar {
+            width: 300px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid white;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(to right, #ff4444, #ff8888);
+            transition: width 0.3s;
+        }
+        #waveInfo {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            text-align: right;
+            font-size: 1.5rem;
+            text-shadow: 2px 2px 4px black;
+        }
+        #ammo {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            font-size: 2rem;
+            font-weight: bold;
+            color: #ffaa00;
+            text-shadow: 2px 2px 4px black;
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            color: white;
+            text-shadow: 0 0 5px black;
+            pointer-events: none;
+        }
+
+        /* Perk Selection */
+        #perkScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #perkScreen h2 {
+            font-size: 3rem;
+            margin-bottom: 2rem;
+            color: #44ff44;
+        }
+        .perk-container {
+            display: flex;
+            gap: 30px;
+        }
+        .perk-card {
+            background: rgba(50, 50, 50, 0.9);
+            border: 3px solid #888;
+            border-radius: 10px;
+            padding: 30px;
+            width: 280px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .perk-card:hover {
+            border-color: #44ff44;
+            transform: translateY(-10px);
+            box-shadow: 0 10px 30px rgba(68, 255, 68, 0.5);
+        }
+        .perk-card h3 {
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            color: #44ff44;
+        }
+        .perk-card p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+        .perk-type {
+            display: inline-block;
+            padding: 5px 10px;
+            background: #ff4444;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+        }
+
+        /* Game Over */
+        #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #gameOverScreen h1 {
+            font-size: 4rem;
+            margin-bottom: 2rem;
+            color: #888;
+        }
+        #gameOverScreen button {
+            background: #888;
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        #gameOverScreen button:hover {
+            background: #aaa;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <div id="ui">
+        <!-- Start Screen -->
+        <div id="startScreen">
+            <h1>FPS DEFENSE</h1>
+            <p style="font-size: 1.5rem; margin-bottom: 2rem;">웨이브를 막아내고 살아남으세요!</p>
+            <button id="startBtn">게임 시작</button>
+            <div class="controls">
+                <h3>조작법</h3>
+                <p>WASD: 이동 (플랫폼 내에서만)</p>
+                <p>마우스: 시점 이동</p>
+                <p>좌클릭: 사격</p>
+                <p>R: 재장전</p>
+            </div>
+        </div>
+
+        <!-- HUD -->
+        <div id="hud" class="hidden">
+            <div id="health">
+                HP: <span id="healthText">100/100</span>
+                <div class="health-bar">
+                    <div class="health-fill" id="healthFill" style="width: 100%;"></div>
+                </div>
+            </div>
+            <div id="waveInfo">
+                <div>웨이브: <span id="waveNumber">1</span></div>
+                <div>적: <span id="enemyCount">0</span></div>
+            </div>
+            <div id="ammo">
+                <span id="currentAmmo">30</span> / <span id="maxAmmo">30</span>
+            </div>
+            <div id="crosshair">+</div>
+        </div>
+
+        <!-- Perk Selection Screen -->
+        <div id="perkScreen">
+            <h2>웨이브 클리어!</h2>
+            <p style="font-size: 1.3rem; margin-bottom: 2rem;">특전을 선택하세요</p>
+            <div class="perk-container" id="perkContainer">
+                <!-- Perk cards will be dynamically added here -->
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen">
+            <h1>게임 오버</h1>
+            <p style="font-size: 1.5rem; margin-bottom: 2rem;">도달한 웨이브: <span id="finalWave">0</span></p>
+            <button id="restartBtn">다시 시작</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

@@ -38,6 +38,7 @@ let wave = {
 // Perk system
 let perks = [];
 const perkDatabase = [
+    // Basic perks
     {
         id: 'damage_up',
         name: '화력 강화',
@@ -78,8 +79,77 @@ const perkDatabase = [
         description: '초당 5 HP 회복',
         type: 'survival',
         effect: () => {
-            // This will be handled in update loop
             player.hasRegen = true;
+        }
+    },
+
+    // Special effect perks
+    {
+        id: 'flame_rounds',
+        name: '🔥 화염탄',
+        description: '적을 불태워 3초간 추가 피해',
+        type: 'special',
+        effect: () => {
+            player.weapon.hasFlame = true;
+        }
+    },
+    {
+        id: 'freeze_rounds',
+        name: '❄️ 동결탄',
+        description: '적을 느리게 만듦 (50% 감속)',
+        type: 'special',
+        effect: () => {
+            player.weapon.hasFreeze = true;
+        }
+    },
+    {
+        id: 'explosive_rounds',
+        name: '💥 폭발탄',
+        description: '범위 피해 (반경 3m)',
+        type: 'special',
+        effect: () => {
+            player.weapon.hasExplosive = true;
+        }
+    },
+    {
+        id: 'pierce_rounds',
+        name: '🎯 관통탄',
+        description: '최대 3명의 적 관통',
+        type: 'special',
+        effect: () => {
+            player.weapon.hasPierce = true;
+            player.weapon.pierceCount = 3;
+        }
+    },
+    {
+        id: 'chain_lightning',
+        name: '⚡ 체인 라이트닝',
+        description: '적 명중 시 주변 2명에게 연쇄 피해',
+        type: 'special',
+        effect: () => {
+            player.weapon.hasChain = true;
+            player.weapon.chainCount = 2;
+        }
+    },
+    {
+        id: 'life_steal',
+        name: '🩸 흡혈',
+        description: '피해의 25%만큼 체력 회복',
+        type: 'special',
+        effect: () => {
+            player.weapon.hasLifeSteal = true;
+            player.weapon.lifeStealPercent = 0.25;
+        }
+    },
+    {
+        id: 'critical_hit',
+        name: '💢 치명타',
+        description: '25% 확률로 2배 피해',
+        type: 'special',
+        effect: () => {
+            player.weapon.hasCritical = true;
+            player.weapon.critChance = 0.25;
+            player.weapon.critMultiplier = 2;
         }
     }
 ];
@@ -359,19 +429,125 @@ function spawnEnemy() {
     const x = Math.cos(angle) * distance;
     const z = Math.sin(angle) * distance;
 
-    const enemy = BABYLON.MeshBuilder.CreateBox("enemy", { size: 1.5 }, scene);
-    enemy.position = new BABYLON.Vector3(x, 0.75, z);
+    // Determine enemy type based on wave and randomness
+    let enemyType = 'normal';
 
-    const enemyMat = new BABYLON.StandardMaterial("enemyMat", scene);
-    enemyMat.diffuseColor = new BABYLON.Color3(1, 0.2, 0.2);
-    enemyMat.emissiveColor = new BABYLON.Color3(0.3, 0, 0);
-    enemy.material = enemyMat;
+    // Boss wave (every 5 waves)
+    if (wave.current % 5 === 0 && wave.enemiesAlive === wave.enemiesTotal - 1) {
+        enemyType = 'boss';
+    } else if (wave.current >= 3) {
+        // After wave 3, introduce special enemies
+        const rand = Math.random();
+        if (rand < 0.2) enemyType = 'runner';
+        else if (rand < 0.4) enemyType = 'tank';
+        else if (rand < 0.5 && wave.current >= 5) enemyType = 'shooter';
+    }
 
-    // Enemy properties
-    enemy.health = 50 + (wave.current - 1) * 20;
-    enemy.maxHealth = enemy.health;
-    enemy.speed = 2 + (wave.current - 1) * 0.3;
-    enemy.damage = 10 + (wave.current - 1) * 5;
+    createEnemyByType(enemyType, x, z);
+}
+
+function createEnemyByType(type, x, z) {
+    let enemy, enemyMat;
+    const waveMultiplier = wave.current - 1;
+
+    switch(type) {
+        case 'runner':
+            // Fast but weak
+            enemy = BABYLON.MeshBuilder.CreateBox("enemy", {
+                width: 1, height: 1, depth: 1
+            }, scene);
+            enemy.position = new BABYLON.Vector3(x, 0.5, z);
+
+            enemyMat = new BABYLON.StandardMaterial("enemyMat", scene);
+            enemyMat.diffuseColor = new BABYLON.Color3(1, 1, 0.2); // Yellow
+            enemyMat.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0);
+            enemy.material = enemyMat;
+
+            enemy.enemyType = 'runner';
+            enemy.health = 25 + waveMultiplier * 10;
+            enemy.maxHealth = enemy.health;
+            enemy.speed = 5 + waveMultiplier * 0.5;
+            enemy.damage = 5 + waveMultiplier * 3;
+            break;
+
+        case 'tank':
+            // Slow but strong
+            enemy = BABYLON.MeshBuilder.CreateBox("enemy", {
+                width: 2, height: 2, depth: 2
+            }, scene);
+            enemy.position = new BABYLON.Vector3(x, 1, z);
+
+            enemyMat = new BABYLON.StandardMaterial("enemyMat", scene);
+            enemyMat.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5); // Gray
+            enemyMat.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+            enemy.material = enemyMat;
+
+            enemy.enemyType = 'tank';
+            enemy.health = 150 + waveMultiplier * 40;
+            enemy.maxHealth = enemy.health;
+            enemy.speed = 1 + waveMultiplier * 0.1;
+            enemy.damage = 20 + waveMultiplier * 8;
+            break;
+
+        case 'shooter':
+            // Ranged attacker
+            enemy = BABYLON.MeshBuilder.CreateCylinder("enemy", {
+                diameter: 1.2, height: 1.5, tessellation: 6
+            }, scene);
+            enemy.position = new BABYLON.Vector3(x, 0.75, z);
+
+            enemyMat = new BABYLON.StandardMaterial("enemyMat", scene);
+            enemyMat.diffuseColor = new BABYLON.Color3(0.2, 1, 0.2); // Green
+            enemyMat.emissiveColor = new BABYLON.Color3(0, 0.3, 0);
+            enemy.material = enemyMat;
+
+            enemy.enemyType = 'shooter';
+            enemy.health = 40 + waveMultiplier * 15;
+            enemy.maxHealth = enemy.health;
+            enemy.speed = 1.5 + waveMultiplier * 0.2;
+            enemy.damage = 15 + waveMultiplier * 5;
+            enemy.shootRange = 10;
+            enemy.lastShootTime = 0;
+            enemy.shootCooldown = 2000;
+            break;
+
+        case 'boss':
+            // Boss enemy - large and powerful
+            enemy = BABYLON.MeshBuilder.CreateSphere("enemy", {
+                diameter: 4, segments: 16
+            }, scene);
+            enemy.position = new BABYLON.Vector3(x, 2, z);
+
+            enemyMat = new BABYLON.StandardMaterial("enemyMat", scene);
+            enemyMat.diffuseColor = new BABYLON.Color3(0.8, 0, 0.8); // Purple
+            enemyMat.emissiveColor = new BABYLON.Color3(0.4, 0, 0.4);
+            enemy.material = enemyMat;
+
+            enemy.enemyType = 'boss';
+            enemy.health = 500 + waveMultiplier * 200;
+            enemy.maxHealth = enemy.health;
+            enemy.speed = 1.5 + waveMultiplier * 0.15;
+            enemy.damage = 30 + waveMultiplier * 10;
+            enemy.isBoss = true;
+            break;
+
+        default:
+            // Normal enemy
+            enemy = BABYLON.MeshBuilder.CreateBox("enemy", { size: 1.5 }, scene);
+            enemy.position = new BABYLON.Vector3(x, 0.75, z);
+
+            enemyMat = new BABYLON.StandardMaterial("enemyMat", scene);
+            enemyMat.diffuseColor = new BABYLON.Color3(1, 0.2, 0.2); // Red
+            enemyMat.emissiveColor = new BABYLON.Color3(0.3, 0, 0);
+            enemy.material = enemyMat;
+
+            enemy.enemyType = 'normal';
+            enemy.health = 50 + waveMultiplier * 20;
+            enemy.maxHealth = enemy.health;
+            enemy.speed = 2 + waveMultiplier * 0.3;
+            enemy.damage = 10 + waveMultiplier * 5;
+    }
+
     enemy.lastAttackTime = 0;
     enemy.attackCooldown = 1000;
 
@@ -386,6 +562,13 @@ function updateGame() {
 
     // Update enemies
     updateEnemies(deltaTime);
+
+    // Update enemy projectiles
+    updateEnemyProjectiles(deltaTime);
+
+    // Update special effects
+    updateBurnEffects(deltaTime);
+    updateFreezeEffects(deltaTime);
 
     // Update laser sight
     updateLaserSight();
@@ -453,19 +636,105 @@ function updateEnemies(deltaTime) {
         const distance = direction.length();
         direction.normalize();
 
-        // Attack if close enough
-        if (distance < 2) {
-            if (now - enemy.lastAttackTime > enemy.attackCooldown) {
-                damagePlayer(enemy.damage);
-                enemy.lastAttackTime = now;
+        // Shooter behavior - ranged attack
+        if (enemy.enemyType === 'shooter') {
+            if (distance < enemy.shootRange && distance > 5) {
+                // Stay at range and shoot
+                if (now - enemy.lastShootTime > enemy.shootCooldown) {
+                    enemyShoot(enemy);
+                    enemy.lastShootTime = now;
+                }
+                // Strafe slightly
+                const strafeDir = new BABYLON.Vector3(-direction.z, 0, direction.x);
+                enemy.position.addInPlace(strafeDir.scale(enemy.speed * deltaTime * 0.5));
+            } else if (distance > enemy.shootRange) {
+                // Move closer
+                enemy.position.addInPlace(direction.scale(enemy.speed * deltaTime));
+            } else {
+                // Too close, back away
+                enemy.position.subtractInPlace(direction.scale(enemy.speed * deltaTime));
             }
         } else {
-            // Move towards player
-            enemy.position.addInPlace(direction.scale(enemy.speed * deltaTime));
+            // Melee behavior
+            if (distance < 2) {
+                // Attack if close enough
+                if (now - enemy.lastAttackTime > enemy.attackCooldown) {
+                    damagePlayer(enemy.damage);
+                    enemy.lastAttackTime = now;
+                }
+            } else {
+                // Move towards player
+                enemy.position.addInPlace(direction.scale(enemy.speed * deltaTime));
+            }
         }
 
-        // Keep enemy on platform
-        enemy.position.y = 0.75;
+        // Keep enemy on platform (adjust Y based on type)
+        if (enemy.enemyType === 'runner') {
+            enemy.position.y = 0.5;
+        } else if (enemy.enemyType === 'tank') {
+            enemy.position.y = 1;
+        } else if (enemy.enemyType === 'boss') {
+            enemy.position.y = 2;
+        } else {
+            enemy.position.y = 0.75;
+        }
+    }
+}
+
+function enemyShoot(enemy) {
+    const direction = camera.position.subtract(enemy.position);
+    direction.normalize();
+
+    // Create projectile
+    const projectile = BABYLON.MeshBuilder.CreateSphere("projectile", {
+        diameter: 0.3
+    }, scene);
+    projectile.position = enemy.position.clone();
+    projectile.position.y += 1;
+
+    const projMat = new BABYLON.StandardMaterial("projMat", scene);
+    projMat.emissiveColor = new BABYLON.Color3(0, 1, 0);
+    projectile.material = projMat;
+
+    projectile.velocity = direction.scale(8); // Projectile speed
+    projectile.damage = enemy.damage;
+    projectile.lifetime = 0;
+    projectile.isEnemyProjectile = true;
+
+    // Add to a projectiles array (we need to create this)
+    if (!scene.enemyProjectiles) scene.enemyProjectiles = [];
+    scene.enemyProjectiles.push(projectile);
+}
+
+function updateEnemyProjectiles(deltaTime) {
+    if (!scene.enemyProjectiles) return;
+
+    for (let i = scene.enemyProjectiles.length - 1; i >= 0; i--) {
+        const proj = scene.enemyProjectiles[i];
+
+        if (!proj || proj.isDisposed()) {
+            scene.enemyProjectiles.splice(i, 1);
+            continue;
+        }
+
+        // Move projectile
+        proj.position.addInPlace(proj.velocity.scale(deltaTime));
+        proj.lifetime += deltaTime;
+
+        // Check collision with player
+        const distToPlayer = BABYLON.Vector3.Distance(proj.position, camera.position);
+        if (distToPlayer < 1) {
+            damagePlayer(proj.damage);
+            proj.dispose();
+            scene.enemyProjectiles.splice(i, 1);
+            continue;
+        }
+
+        // Remove if too old or out of bounds
+        if (proj.lifetime > 5 || proj.position.length() > ARENA_RADIUS + 5) {
+            proj.dispose();
+            scene.enemyProjectiles.splice(i, 1);
+        }
     }
 }
 
@@ -494,34 +763,100 @@ function shoot() {
         }, 100);
     }
 
+    // Calculate damage with critical hit
+    let damage = player.weapon.damage;
+    let isCrit = false;
+    if (player.weapon.hasCritical && Math.random() < player.weapon.critChance) {
+        damage *= player.weapon.critMultiplier;
+        isCrit = true;
+    }
+
     // Raycast from camera
     const ray = camera.getForwardRay(100);
-    const hit = scene.pickWithRay(ray, (mesh) => {
-        return wave.enemies.includes(mesh);
-    });
 
     // Calculate muzzle position (gun barrel tip)
     const muzzleOffset = new BABYLON.Vector3(0.3, -0.15, 1.0);
     const muzzlePos = camera.position.add(muzzleOffset);
 
-    // Visual bullet trace from muzzle
-    createBulletTrace(muzzlePos, ray.direction);
+    // Visual bullet trace from muzzle (change color for special effects)
+    if (player.weapon.hasFlame) {
+        createBulletTrace(muzzlePos, ray.direction, new BABYLON.Color3(1, 0.5, 0)); // Orange
+    } else if (player.weapon.hasFreeze) {
+        createBulletTrace(muzzlePos, ray.direction, new BABYLON.Color3(0, 0.8, 1)); // Cyan
+    } else if (player.weapon.hasChain) {
+        createBulletTrace(muzzlePos, ray.direction, new BABYLON.Color3(0.5, 0.5, 1)); // Electric blue
+    } else {
+        createBulletTrace(muzzlePos, ray.direction);
+    }
 
     // Create muzzle flash
     createMuzzleFlash(muzzlePos);
 
-    if (hit.pickedMesh) {
-        const enemy = hit.pickedMesh;
-        damageEnemy(enemy, player.weapon.damage);
+    // Pierce rounds - hit multiple enemies
+    if (player.weapon.hasPierce) {
+        const hits = scene.multiPickWithRay(ray, (mesh) => {
+            return wave.enemies.includes(mesh);
+        });
+
+        let hitCount = 0;
+        for (const hit of hits) {
+            if (hitCount >= player.weapon.pierceCount) break;
+            if (hit.pickedMesh) {
+                applyWeaponEffects(hit.pickedMesh, damage, isCrit);
+                hitCount++;
+            }
+        }
+    } else {
+        // Normal single-target shot
+        const hit = scene.pickWithRay(ray, (mesh) => {
+            return wave.enemies.includes(mesh);
+        });
+
+        if (hit.pickedMesh) {
+            applyWeaponEffects(hit.pickedMesh, damage, isCrit);
+        }
     }
 }
 
-function createBulletTrace(origin, direction) {
+function applyWeaponEffects(enemy, damage, isCrit) {
+    // Apply damage
+    const actualDamage = damage;
+    damageEnemy(enemy, actualDamage, isCrit);
+
+    // Life steal
+    if (player.weapon.hasLifeSteal) {
+        const healAmount = actualDamage * player.weapon.lifeStealPercent;
+        player.health = Math.min(player.maxHealth, player.health + healAmount);
+        updateHealthUI();
+    }
+
+    // Flame effect - DoT
+    if (player.weapon.hasFlame) {
+        applyBurnEffect(enemy);
+    }
+
+    // Freeze effect
+    if (player.weapon.hasFreeze) {
+        applyFreezeEffect(enemy);
+    }
+
+    // Explosive rounds
+    if (player.weapon.hasExplosive) {
+        createExplosion(enemy.position, damage * 0.5);
+    }
+
+    // Chain lightning
+    if (player.weapon.hasChain) {
+        applyChainLightning(enemy, damage * 0.5);
+    }
+}
+
+function createBulletTrace(origin, direction, color = new BABYLON.Color3(1, 1, 0)) {
     const end = origin.add(direction.scale(100));
     const trace = BABYLON.MeshBuilder.CreateLines("trace", {
         points: [origin, end]
     }, scene);
-    trace.color = new BABYLON.Color3(1, 1, 0);
+    trace.color = color;
 
     setTimeout(() => {
         trace.dispose();
@@ -543,14 +878,30 @@ function createMuzzleFlash(position) {
     }, 50);
 }
 
-function damageEnemy(enemy, damage) {
+function damageEnemy(enemy, damage, isCrit = false) {
     enemy.health -= damage;
 
     // Visual feedback
-    enemy.material.emissiveColor = new BABYLON.Color3(1, 1, 1);
+    if (isCrit) {
+        enemy.material.emissiveColor = new BABYLON.Color3(1, 1, 0); // Yellow for crit
+    } else {
+        enemy.material.emissiveColor = new BABYLON.Color3(1, 1, 1);
+    }
+
     setTimeout(() => {
         if (!enemy.isDisposed()) {
-            enemy.material.emissiveColor = new BABYLON.Color3(0.3, 0, 0);
+            // Restore original color based on type
+            if (enemy.enemyType === 'runner') {
+                enemy.material.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0);
+            } else if (enemy.enemyType === 'tank') {
+                enemy.material.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+            } else if (enemy.enemyType === 'shooter') {
+                enemy.material.emissiveColor = new BABYLON.Color3(0, 0.3, 0);
+            } else if (enemy.enemyType === 'boss') {
+                enemy.material.emissiveColor = new BABYLON.Color3(0.4, 0, 0.4);
+            } else {
+                enemy.material.emissiveColor = new BABYLON.Color3(0.3, 0, 0);
+            }
         }
     }, 100);
 
@@ -569,6 +920,137 @@ function killEnemy(enemy) {
     updateWaveUI();
 
     enemy.dispose();
+}
+
+// ==================== Special Effect Functions ====================
+function applyBurnEffect(enemy) {
+    if (enemy.isBurning) return; // Don't stack
+
+    enemy.isBurning = true;
+    enemy.burnDuration = 3; // 3 seconds
+    enemy.burnDPS = player.weapon.damage * 0.3; // 30% of damage per second
+    enemy.burnTickRate = 0.5; // Tick every 0.5 seconds
+    enemy.burnLastTick = Date.now();
+}
+
+function updateBurnEffects(deltaTime) {
+    const now = Date.now();
+
+    for (const enemy of wave.enemies) {
+        if (enemy.isBurning) {
+            enemy.burnDuration -= deltaTime;
+
+            if (now - enemy.burnLastTick > enemy.burnTickRate * 1000) {
+                damageEnemy(enemy, enemy.burnDPS * enemy.burnTickRate);
+                enemy.burnLastTick = now;
+
+                // Visual effect
+                if (!enemy.isDisposed()) {
+                    enemy.material.emissiveColor = new BABYLON.Color3(1, 0.3, 0);
+                }
+            }
+
+            if (enemy.burnDuration <= 0) {
+                enemy.isBurning = false;
+            }
+        }
+    }
+}
+
+function applyFreezeEffect(enemy) {
+    if (enemy.isFrozen) return;
+
+    enemy.isFrozen = true;
+    enemy.freezeDuration = 2; // 2 seconds
+    enemy.originalSpeed = enemy.speed;
+    enemy.speed *= 0.5; // 50% slow
+
+    // Visual effect
+    if (!enemy.isDisposed()) {
+        enemy.material.specularColor = new BABYLON.Color3(0.5, 0.5, 1);
+    }
+}
+
+function updateFreezeEffects(deltaTime) {
+    for (const enemy of wave.enemies) {
+        if (enemy.isFrozen) {
+            enemy.freezeDuration -= deltaTime;
+
+            if (enemy.freezeDuration <= 0) {
+                enemy.isFrozen = false;
+                enemy.speed = enemy.originalSpeed;
+                if (!enemy.isDisposed()) {
+                    enemy.material.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+                }
+            }
+        }
+    }
+}
+
+function createExplosion(position, damage) {
+    // Visual explosion
+    const explosion = BABYLON.MeshBuilder.CreateSphere("explosion", {
+        diameter: 6
+    }, scene);
+    explosion.position = position.clone();
+
+    const expMat = new BABYLON.StandardMaterial("expMat", scene);
+    expMat.emissiveColor = new BABYLON.Color3(1, 0.5, 0);
+    expMat.alpha = 0.5;
+    explosion.material = expMat;
+
+    setTimeout(() => {
+        explosion.dispose();
+    }, 200);
+
+    // Apply damage to nearby enemies
+    for (const enemy of wave.enemies) {
+        const distance = BABYLON.Vector3.Distance(enemy.position, position);
+        if (distance < 3) {
+            damageEnemy(enemy, damage * (1 - distance / 3)); // Falloff damage
+        }
+    }
+}
+
+function applyChainLightning(sourceEnemy, damage) {
+    let currentTarget = sourceEnemy;
+    let chainedEnemies = [sourceEnemy];
+    let chainCount = 0;
+
+    while (chainCount < player.weapon.chainCount) {
+        let closestEnemy = null;
+        let closestDistance = Infinity;
+
+        // Find nearest unchained enemy
+        for (const enemy of wave.enemies) {
+            if (chainedEnemies.includes(enemy)) continue;
+
+            const distance = BABYLON.Vector3.Distance(enemy.position, currentTarget.position);
+            if (distance < 8 && distance < closestDistance) {
+                closestDistance = distance;
+                closestEnemy = enemy;
+            }
+        }
+
+        if (!closestEnemy) break;
+
+        // Create lightning visual
+        const lightning = BABYLON.MeshBuilder.CreateLines("lightning", {
+            points: [currentTarget.position, closestEnemy.position]
+        }, scene);
+        lightning.color = new BABYLON.Color3(0.5, 0.5, 1);
+
+        setTimeout(() => {
+            lightning.dispose();
+        }, 100);
+
+        // Apply damage
+        damageEnemy(closestEnemy, damage * 0.7); // Reduced damage per chain
+
+        chainedEnemies.push(closestEnemy);
+        currentTarget = closestEnemy;
+        chainCount++;
+    }
 }
 
 function damagePlayer(damage) {

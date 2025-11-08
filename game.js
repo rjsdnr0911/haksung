@@ -92,6 +92,13 @@ let arena;
 let keys = {};
 let isPointerLocked = false;
 
+// Mobile controls
+let isMobile = false;
+let joystickActive = false;
+let joystickVector = { x: 0, y: 0 };
+let touchLookStart = null;
+let isShooting = false;
+
 // ==================== Initialization ====================
 window.addEventListener('DOMContentLoaded', function() {
     canvas = document.getElementById('renderCanvas');
@@ -106,8 +113,15 @@ window.addEventListener('DOMContentLoaded', function() {
         location.reload();
     });
 
+    // Detect mobile
+    detectMobile();
+
     // Input listeners
     setupInputHandlers();
+
+    if (isMobile) {
+        setupMobileControls();
+    }
 
     // Render loop
     engine.runRenderLoop(function() {
@@ -189,9 +203,14 @@ function startGame() {
     document.getElementById('startScreen').classList.add('hidden');
     document.getElementById('hud').classList.remove('hidden');
 
-    // Request pointer lock
-    canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
-    canvas.requestPointerLock();
+    // Show mobile controls if on mobile
+    if (isMobile) {
+        document.getElementById('mobileControls').classList.add('active');
+    } else {
+        // Request pointer lock for desktop
+        canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
+        canvas.requestPointerLock();
+    }
 
     // Start first wave
     startWave(1);
@@ -275,10 +294,17 @@ function handlePlayerMovement(deltaTime) {
 
     let movement = BABYLON.Vector3.Zero();
 
+    // Keyboard input
     if (keys['w'] || keys['W']) movement.addInPlace(forward);
     if (keys['s'] || keys['S']) movement.subtractInPlace(forward);
     if (keys['d'] || keys['D']) movement.addInPlace(right);
     if (keys['a'] || keys['A']) movement.subtractInPlace(right);
+
+    // Mobile joystick input
+    if (isMobile && joystickActive) {
+        movement.addInPlace(forward.scale(joystickVector.y));
+        movement.addInPlace(right.scale(joystickVector.x));
+    }
 
     if (movement.length() > 0) {
         movement.normalize();
@@ -519,4 +545,159 @@ function updateAmmoUI() {
 function updateWaveUI() {
     document.getElementById('waveNumber').textContent = wave.current;
     document.getElementById('enemyCount').textContent = wave.enemiesAlive;
+}
+
+// ==================== Mobile Controls ====================
+function detectMobile() {
+    isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        || ('ontouchstart' in window);
+}
+
+function setupMobileControls() {
+    const joystickArea = document.getElementById('joystickArea');
+    const joystickStick = document.getElementById('joystickStick');
+    const shootButton = document.getElementById('shootButton');
+    const reloadButton = document.getElementById('reloadButton');
+
+    // Joystick controls
+    let joystickTouchId = null;
+    let joystickCenter = { x: 0, y: 0 };
+    const joystickRadius = 75;
+
+    joystickArea.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (joystickTouchId !== null) return;
+
+        const touch = e.changedTouches[0];
+        joystickTouchId = touch.identifier;
+
+        const rect = joystickArea.getBoundingClientRect();
+        joystickCenter.x = rect.left + rect.width / 2;
+        joystickCenter.y = rect.top + rect.height / 2;
+
+        joystickActive = true;
+        updateJoystick(touch.clientX, touch.clientY, joystickCenter, joystickRadius);
+    });
+
+    joystickArea.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        for (let touch of e.changedTouches) {
+            if (touch.identifier === joystickTouchId) {
+                updateJoystick(touch.clientX, touch.clientY, joystickCenter, joystickRadius);
+                break;
+            }
+        }
+    });
+
+    joystickArea.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        for (let touch of e.changedTouches) {
+            if (touch.identifier === joystickTouchId) {
+                joystickTouchId = null;
+                joystickActive = false;
+                joystickVector = { x: 0, y: 0 };
+                joystickStick.style.transform = 'translate(-50%, -50%)';
+                break;
+            }
+        }
+    });
+
+    // Shoot button
+    shootButton.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        isShooting = true;
+        startAutoShoot();
+    });
+
+    shootButton.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        isShooting = false;
+    });
+
+    // Reload button
+    reloadButton.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        reload();
+    });
+
+    // Touch camera rotation (right side of screen)
+    let lookTouchId = null;
+    let lastTouchPos = { x: 0, y: 0 };
+
+    canvas.addEventListener('touchstart', (e) => {
+        // Only use touches on right half of screen for looking
+        for (let touch of e.changedTouches) {
+            if (touch.clientX > window.innerWidth / 2) {
+                lookTouchId = touch.identifier;
+                lastTouchPos.x = touch.clientX;
+                lastTouchPos.y = touch.clientY;
+                break;
+            }
+        }
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        for (let touch of e.changedTouches) {
+            if (touch.identifier === lookTouchId) {
+                const deltaX = touch.clientX - lastTouchPos.x;
+                const deltaY = touch.clientY - lastTouchPos.y;
+
+                // Rotate camera
+                camera.rotation.y += deltaX * 0.003;
+                camera.rotation.x += deltaY * 0.003;
+
+                // Clamp vertical rotation
+                camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+
+                lastTouchPos.x = touch.clientX;
+                lastTouchPos.y = touch.clientY;
+                break;
+            }
+        }
+    });
+
+    canvas.addEventListener('touchend', (e) => {
+        for (let touch of e.changedTouches) {
+            if (touch.identifier === lookTouchId) {
+                lookTouchId = null;
+                break;
+            }
+        }
+    });
+}
+
+function updateJoystick(touchX, touchY, center, radius) {
+    const deltaX = touchX - center.x;
+    const deltaY = touchY - center.y;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+    let x = deltaX;
+    let y = deltaY;
+
+    if (distance > radius) {
+        x = (deltaX / distance) * radius;
+        y = (deltaY / distance) * radius;
+    }
+
+    // Update visual
+    const joystickStick = document.getElementById('joystickStick');
+    joystickStick.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+
+    // Update vector for movement (normalize to -1 to 1)
+    joystickVector.x = x / radius;
+    joystickVector.y = -y / radius; // Invert Y for forward/backward
+}
+
+function startAutoShoot() {
+    if (!isShooting || currentState !== GameState.PLAYING) return;
+
+    shoot();
+
+    // Continue shooting while button is held
+    setTimeout(() => {
+        if (isShooting) {
+            startAutoShoot();
+        }
+    }, 100);
 }

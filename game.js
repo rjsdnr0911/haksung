@@ -168,7 +168,6 @@ let arena;
 
 // Weapon visuals
 let weaponModel;
-let laserSight;
 
 // Survival mode weapon models
 let leftWeaponModel;
@@ -337,9 +336,6 @@ function createScene() {
     // Create weapon model
     createWeaponModel(scene);
 
-    // Create laser sight
-    createLaserSight(scene);
-
     return scene;
 }
 
@@ -406,47 +402,6 @@ function createWeaponModel(scene) {
     // Attach weapon to camera
     weaponModel.parent = camera;
     weaponModel.position = new BABYLON.Vector3(0, 0, 0);
-}
-
-function createLaserSight(scene) {
-    // Create a thin line that extends from the gun
-    laserSight = BABYLON.MeshBuilder.CreateLines("laserSight", {
-        points: [
-            new BABYLON.Vector3(0, 0, 0),
-            new BABYLON.Vector3(0, 0, 100)
-        ],
-        updatable: true
-    }, scene);
-
-    laserSight.color = new BABYLON.Color3(1, 0, 0); // Red laser
-    laserSight.alpha = 0.6;
-    laserSight.isPickable = false;
-}
-
-function updateLaserSight() {
-    if (!laserSight || !camera) return;
-
-    // Raycast from camera
-    const ray = camera.getForwardRay(100);
-    const hit = scene.pickWithRay(ray, (mesh) => {
-        return mesh !== arena && !wave.enemies.includes(mesh) && mesh.name !== 'skyBox';
-    });
-
-    // Start from gun barrel position
-    const startPos = camera.position.add(new BABYLON.Vector3(0.3, -0.15, 0.5));
-    let endPos;
-
-    if (hit.pickedPoint) {
-        endPos = hit.pickedPoint;
-    } else {
-        endPos = ray.origin.add(ray.direction.scale(100));
-    }
-
-    // Update laser line
-    laserSight = BABYLON.MeshBuilder.CreateLines("laserSight", {
-        points: [startPos, endPos],
-        instance: laserSight
-    });
 }
 
 // ==================== Individual Weapon Models ====================
@@ -944,8 +899,16 @@ function showWaveAnnouncement(text) {
 }
 
 function spawnWaveEnemy(waveType, spawnIndex) {
-    // Random position on arena edge
-    const angle = Math.random() * Math.PI * 2;
+    // Get player's facing direction to avoid spawning in front
+    const cameraDirection = camera.getDirection(BABYLON.Axis.Z);
+    const playerAngle = Math.atan2(cameraDirection.z, cameraDirection.x);
+
+    // Spawn enemies behind or to the sides of player (not in front)
+    // Player's view is roughly 90 degrees, so spawn in the remaining 270 degrees
+    // Add random offset from behind (180 degrees ± 135 degrees)
+    const spawnAngleOffset = (Math.random() * 270 - 135) * (Math.PI / 180);
+    const angle = playerAngle + Math.PI + spawnAngleOffset; // +PI to be behind player
+
     const distance = ARENA_RADIUS - 2;
     const x = Math.cos(angle) * distance;
     const z = Math.sin(angle) * distance;
@@ -1112,9 +1075,6 @@ function updateGame() {
     // Update special effects
     updateBurnEffects(deltaTime);
     updateFreezeEffects(deltaTime);
-
-    // Update laser sight
-    updateLaserSight();
 
     // Update damage numbers
     updateDamageNumbers(deltaTime);
@@ -1334,9 +1294,15 @@ function shoot() {
     // Raycast from camera
     const ray = camera.getForwardRay(100);
 
-    // Calculate muzzle position (gun barrel tip)
-    const muzzleOffset = new BABYLON.Vector3(0.3, -0.15, 1.0);
-    const muzzlePos = camera.position.add(muzzleOffset);
+    // Calculate muzzle position using camera's local coordinate system
+    const right = camera.getDirection(BABYLON.Axis.X);
+    const up = camera.getDirection(BABYLON.Axis.Y);
+    const forward = camera.getDirection(BABYLON.Axis.Z);
+
+    const muzzlePos = camera.position
+        .add(right.scale(0.3))      // 오른쪽으로 0.3
+        .add(up.scale(-0.15))       // 아래로 0.15
+        .add(forward.scale(1.0));   // 앞으로 1.0
 
     // Create muzzle flash
     createMuzzleFlash(muzzlePos);
@@ -1895,10 +1861,21 @@ function reload() {
 
     player.weapon.isReloading = true;
 
+    // Show reload indicator
+    const reloadIndicator = document.getElementById('waveReloadIndicator');
+    if (reloadIndicator) {
+        reloadIndicator.style.display = 'block';
+    }
+
     setTimeout(() => {
         player.weapon.currentAmmo = player.weapon.maxAmmo;
         player.weapon.isReloading = false;
         updateAmmoUI();
+
+        // Hide reload indicator
+        if (reloadIndicator) {
+            reloadIndicator.style.display = 'none';
+        }
     }, player.weapon.reloadTime);
 }
 
@@ -2460,9 +2437,32 @@ function spawnSurvivalEnemies(deltaTime) {
         enemySpawnTimer = 0;
 
         for (let i = 0; i < spawnCount; i++) {
-            // Spawn enemy at random position on map edge
+            // Get player's facing direction to avoid spawning in front
+            const cameraDirection = camera.getDirection(BABYLON.Axis.Z);
+            const playerAngle = Math.atan2(cameraDirection.z, cameraDirection.x);
+
+            // Determine which sides are NOT in front of player
+            // Calculate which direction player is facing (N, E, S, W)
+            const facingAngle = ((playerAngle * 180 / Math.PI) + 360) % 360;
+
+            // Exclude the side player is facing (with 45 degree tolerance)
+            let availableSides = [];
+            if (facingAngle < 45 || facingAngle > 315) {
+                // Facing East (+X), exclude right side
+                availableSides = [0, 2, 3]; // top, bottom, left
+            } else if (facingAngle >= 45 && facingAngle < 135) {
+                // Facing North (+Z), exclude top side
+                availableSides = [1, 2, 3]; // right, bottom, left
+            } else if (facingAngle >= 135 && facingAngle < 225) {
+                // Facing West (-X), exclude left side
+                availableSides = [0, 1, 2]; // top, right, bottom
+            } else {
+                // Facing South (-Z), exclude bottom side
+                availableSides = [0, 1, 3]; // top, right, left
+            }
+
             const halfSize = survival.mapSize / 2 - 2;
-            const side = Math.floor(Math.random() * 4);
+            const side = availableSides[Math.floor(Math.random() * availableSides.length)];
             let x, z;
 
             switch (side) {
@@ -3008,7 +3008,16 @@ function shootWeapon(weapon, isLeft) {
 
     // Shoot
     const ray = camera.getForwardRay(100);
-    const muzzlePos = camera.position.add(new BABYLON.Vector3(isLeft ? -0.3 : 0.3, -0.15, 1.0));
+
+    // Calculate muzzle position using camera's local coordinate system
+    const right = camera.getDirection(BABYLON.Axis.X);
+    const up = camera.getDirection(BABYLON.Axis.Y);
+    const forward = camera.getDirection(BABYLON.Axis.Z);
+
+    const muzzlePos = camera.position
+        .add(right.scale(isLeft ? -0.3 : 0.3))  // 왼쪽/오른쪽
+        .add(up.scale(-0.15))                    // 아래로
+        .add(forward.scale(1.0));                // 앞으로
 
     // Shotgun fires multiple pellets
     if (weapon.type === 'shotgun') {
@@ -3046,10 +3055,23 @@ function reloadWeapon(weapon, isLeft) {
     if (weapon.currentAmmo === weapon.maxAmmo) return;
 
     weapon.isReloading = true;
+
+    // Show reload indicator
+    const indicatorId = isLeft ? 'leftReloadIndicator' : 'rightReloadIndicator';
+    const reloadIndicator = document.getElementById(indicatorId);
+    if (reloadIndicator) {
+        reloadIndicator.style.display = 'block';
+    }
+
     setTimeout(() => {
         weapon.currentAmmo = weapon.maxAmmo;
         weapon.isReloading = false;
         updateSurvivalWeaponUI();
+
+        // Hide reload indicator
+        if (reloadIndicator) {
+            reloadIndicator.style.display = 'none';
+        }
     }, weapon.reloadTime);
 }
 

@@ -227,6 +227,10 @@
             50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
             100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
         }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
 
         /* Perk Selection */
         #perkScreen {
@@ -617,6 +621,7 @@
             <div id="waveAmmo" style="position: absolute; bottom: 30px; right: 30px; font-size: 2rem; text-align: right; text-shadow: 2px 2px 4px black;">
                 <div style="color: #ffaa00; font-size: 1.3rem;">탄약</div>
                 <div id="waveAmmoCount">30/30</div>
+                <div id="waveReloadIndicator" style="display: none; color: #ff4444; font-size: 1.5rem; margin-top: 5px; animation: pulse 0.8s infinite;">장전 중...</div>
             </div>
 
             <!-- Crosshair -->
@@ -673,11 +678,13 @@
                     <div style="color: #ffaa00;">좌클릭</div>
                     <div id="leftWeaponName">권총</div>
                     <div id="leftWeaponAmmo">15/15</div>
+                    <div id="leftReloadIndicator" style="display: none; color: #ff4444; font-size: 1rem; margin-top: 3px;">장전 중...</div>
                 </div>
                 <div id="rightWeapon" style="font-size: 1.3rem; text-align: right; text-shadow: 2px 2px 4px black;">
                     <div style="color: #ffaa00;">우클릭</div>
                     <div id="rightWeaponName">라이플</div>
                     <div id="rightWeaponAmmo">30/30</div>
+                    <div id="rightReloadIndicator" style="display: none; color: #ff4444; font-size: 1rem; margin-top: 3px;">장전 중...</div>
                 </div>
             </div>
 

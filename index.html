@@ -456,20 +456,21 @@
     <div id="ui">
         <!-- Start Screen -->
         <div id="startScreen">
-            <h1>FPS DEFENSE</h1>
-            <p style="font-size: 1.5rem; margin-bottom: 2rem;">게임 모드를 선택하세요</p>
-            <div style="display: flex; gap: 30px; margin-bottom: 3rem;">
-                <div class="mode-card">
-                    <h2>웨이브 디펜스</h2>
-                    <p>제한된 플랫폼에서 웨이브를 막아내세요</p>
-                    <button id="waveDefenseBtn" class="mode-button">시작</button>
-                </div>
-                <div class="mode-card">
-                    <h2>서바이벌 모드</h2>
-                    <p>20분간 생존하며 레벨업하세요</p>
-                    <button id="survivalBtn" class="mode-button">시작</button>
+            <h1>FPS SURVIVAL</h1>
+            <p style="font-size: 1.5rem; margin-bottom: 1rem;">20분간 생존하며 레벨업하세요</p>
+
+            <!-- Settings Panel -->
+            <div style="background: rgba(0,0,0,0.7); padding: 20px; border-radius: 10px; margin-bottom: 2rem; min-width: 300px;">
+                <h3 style="margin-top: 0;">설정</h3>
+                <div style="margin: 15px 0;">
+                    <label for="sensitivitySlider">마우스 민감도: <span id="sensitivityValue">1.0</span></label>
+                    <input type="range" id="sensitivitySlider" min="0.1" max="3.0" step="0.1" value="1.0"
+                           style="width: 100%; margin-top: 5px;">
                 </div>
             </div>
+
+            <button id="startGameBtn" class="mode-button" style="font-size: 1.8rem; padding: 20px 60px;">게임 시작</button>
+
             <div class="controls">
                 <h3>조작법</h3>
                 <p>WASD: 이동</p>
@@ -479,24 +480,6 @@
                 <p>F: 전체화면</p>
             </div>
             <button id="fullscreenBtn">⛶ 전체화면</button>
-        </div>
-
-        <!-- Wave Defense HUD -->
-        <div id="waveHud" class="hidden">
-            <div id="health">
-                HP: <span id="healthText">100/100</span>
-                <div class="health-bar">
-                    <div class="health-fill" id="healthFill" style="width: 100%;"></div>
-                </div>
-            </div>
-            <div id="waveInfo">
-                <div>웨이브: <span id="waveNumber">1</span></div>
-                <div>적: <span id="enemyCount">0</span></div>
-            </div>
-            <div id="ammo">
-                <span id="currentAmmo">30</span> / <span id="maxAmmo">30</span>
-            </div>
-            <div id="crosshair">+</div>
         </div>
 
         <!-- Survival Mode HUD -->

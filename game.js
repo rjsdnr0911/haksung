@@ -13,9 +13,10 @@ const GameMode = {
 };
 
 let currentState = GameState.MENU;
-let currentMode = null;
+let currentMode = GameMode.SURVIVAL; // Always survival mode
 let scene, engine, camera;
 let canvas;
+let mouseSensitivity = 1.0;
 
 // Player stats
 let player = {
@@ -223,12 +224,7 @@ window.addEventListener('DOMContentLoaded', function() {
     scene = createScene();
 
     // UI event listeners
-    document.getElementById('waveDefenseBtn').addEventListener('click', () => {
-        currentMode = GameMode.WAVE_DEFENSE;
-        startWaveDefenseMode();
-    });
-    document.getElementById('survivalBtn').addEventListener('click', () => {
-        currentMode = GameMode.SURVIVAL;
+    document.getElementById('startGameBtn').addEventListener('click', () => {
         startSurvivalMode();
     });
     document.getElementById('restartBtn').addEventListener('click', () => {
@@ -236,6 +232,17 @@ window.addEventListener('DOMContentLoaded', function() {
     });
     document.getElementById('fullscreenBtn').addEventListener('click', () => {
         toggleFullscreen();
+    });
+
+    // Sensitivity slider
+    const sensitivitySlider = document.getElementById('sensitivitySlider');
+    const sensitivityValue = document.getElementById('sensitivityValue');
+    sensitivitySlider.addEventListener('input', (e) => {
+        mouseSensitivity = parseFloat(e.target.value);
+        sensitivityValue.textContent = mouseSensitivity.toFixed(1);
+        if (camera) {
+            camera.angularSensibility = 2000 / mouseSensitivity;
+        }
     });
 
     // Detect mobile
@@ -272,7 +279,7 @@ function createScene() {
     camera = new BABYLON.UniversalCamera("camera", new BABYLON.Vector3(0, 1.6, 0), scene);
     camera.attachControl(canvas, false);
     camera.speed = 0; // We'll handle movement manually
-    camera.angularSensibility = 1000;
+    camera.angularSensibility = 2000 / mouseSensitivity; // Higher value = lower sensitivity
     camera.minZ = 0.1;
     camera.checkCollisions = true;
     camera.applyGravity = false;
@@ -1315,6 +1322,9 @@ function createMuzzleFlash(position) {
 }
 
 function damageEnemy(enemy, damage, isCrit = false) {
+    // Check if enemy is already dead or disposed
+    if (!enemy || enemy.isDisposed() || enemy.isDead) return;
+
     enemy.health -= damage;
 
     // Show damage number
@@ -1328,7 +1338,7 @@ function damageEnemy(enemy, damage, isCrit = false) {
     }
 
     setTimeout(() => {
-        if (!enemy.isDisposed()) {
+        if (!enemy.isDisposed() && !enemy.isDead) {
             // Restore original color based on type
             if (enemy.enemyType === 'runner') {
                 enemy.material.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0);
@@ -1344,12 +1354,17 @@ function damageEnemy(enemy, damage, isCrit = false) {
         }
     }, 100);
 
-    if (enemy.health <= 0) {
+    if (enemy.health <= 0 && !enemy.isDead) {
         killEnemy(enemy);
     }
 }
 
 function killEnemy(enemy) {
+    // Prevent multiple kills
+    if (!enemy || enemy.isDisposed() || enemy.isDead) return;
+
+    enemy.isDead = true;
+
     const index = wave.enemies.indexOf(enemy);
     if (index > -1) {
         wave.enemies.splice(index, 1);

@@ -375,6 +375,41 @@
             transform: scale(1.05);
         }
 
+        /* Item Inventory HUD */
+        #itemInventory {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .item-slot {
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 8px 12px;
+            min-width: 200px;
+        }
+        .item-icon {
+            font-size: 1.8rem;
+            margin-right: 10px;
+        }
+        .item-info {
+            flex: 1;
+        }
+        .item-name {
+            font-size: 1rem;
+            font-weight: bold;
+            color: #fff;
+        }
+        .item-level {
+            font-size: 0.85rem;
+            color: #ffaa00;
+        }
+
         /* Mobile adjustments */
         @media (max-width: 768px) {
             #startScreen h1 {
@@ -507,6 +542,9 @@
             </div>
 
             <div id="crosshair" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2rem; color: white; text-shadow: 0 0 5px black;">+</div>
+
+            <!-- Item Inventory -->
+            <div id="itemInventory"></div>
         </div>
 
         <!-- Level Up Screen -->

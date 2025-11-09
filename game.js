@@ -211,6 +211,9 @@ let survival = {
 // Item meshes storage
 let itemMeshes = [];
 
+// Damage numbers storage
+let damageNumbers = [];
+
 // ==================== Initialization ====================
 window.addEventListener('DOMContentLoaded', function() {
     canvas = document.getElementById('renderCanvas');
@@ -1008,6 +1011,9 @@ function updateGame() {
     // Update laser sight
     updateLaserSight();
 
+    // Update damage numbers
+    updateDamageNumbers(deltaTime);
+
     // Mode-specific updates
     if (currentMode === GameMode.SURVIVAL) {
         updateSurvivalMode(deltaTime);
@@ -1322,6 +1328,9 @@ function createMuzzleFlash(position) {
 function damageEnemy(enemy, damage, isCrit = false) {
     enemy.health -= damage;
 
+    // Show damage number
+    showDamageNumber(enemy.position, damage, isCrit);
+
     // Visual feedback
     if (isCrit) {
         enemy.material.emissiveColor = new BABYLON.Color3(1, 1, 0); // Yellow for crit
@@ -1364,9 +1373,123 @@ function killEnemy(enemy) {
     } else if (currentMode === GameMode.SURVIVAL) {
         survival.killCount++;
         addXP(5); // Add XP in survival mode
+        updateKillCountUI();
     }
 
     enemy.dispose();
+}
+
+// ==================== Damage Number System ====================
+function showDamageNumber(position, damage, isCrit = false) {
+    // Create text plane for damage number
+    const damageText = Math.round(damage).toString();
+
+    // Create plane for text
+    const plane = BABYLON.MeshBuilder.CreatePlane("damageNumber", {
+        width: isCrit ? 1.5 : 1,
+        height: isCrit ? 1.5 : 1
+    }, scene);
+
+    // Position slightly above and offset randomly
+    plane.position = position.clone();
+    plane.position.y += 1.5;
+    plane.position.x += (Math.random() - 0.5) * 0.5;
+    plane.position.z += (Math.random() - 0.5) * 0.5;
+
+    // Make it always face camera
+    plane.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+
+    // Create dynamic texture for text
+    const dynamicTexture = new BABYLON.DynamicTexture("damageText", 256, scene);
+    const context = dynamicTexture.getContext();
+
+    // Draw text
+    const fontSize = isCrit ? 120 : 80;
+    const font = `bold ${fontSize}px Arial`;
+    dynamicTexture.drawText(damageText, null, null, font,
+        isCrit ? "#FFFF00" : "#FFFFFF",
+        "transparent", true, true);
+
+    // Apply texture to plane
+    const material = new BABYLON.StandardMaterial("damageMat", scene);
+    material.diffuseTexture = dynamicTexture;
+    material.emissiveTexture = dynamicTexture;
+    material.opacityTexture = dynamicTexture;
+    material.backFaceCulling = false;
+    plane.material = material;
+
+    // Store in damage numbers array
+    damageNumbers.push({
+        mesh: plane,
+        lifetime: 0,
+        maxLifetime: 1.0, // 1 second
+        initialY: plane.position.y,
+        isCrit: isCrit
+    });
+}
+
+function updateDamageNumbers(deltaTime) {
+    for (let i = damageNumbers.length - 1; i >= 0; i--) {
+        const dmgNum = damageNumbers[i];
+
+        if (!dmgNum.mesh || dmgNum.mesh.isDisposed()) {
+            damageNumbers.splice(i, 1);
+            continue;
+        }
+
+        dmgNum.lifetime += deltaTime;
+
+        // Float upward
+        dmgNum.mesh.position.y = dmgNum.initialY + dmgNum.lifetime * 2;
+
+        // Fade out
+        const alpha = 1 - (dmgNum.lifetime / dmgNum.maxLifetime);
+        if (dmgNum.mesh.material) {
+            dmgNum.mesh.material.alpha = alpha;
+        }
+
+        // Remove when expired
+        if (dmgNum.lifetime >= dmgNum.maxLifetime) {
+            dmgNum.mesh.dispose();
+            damageNumbers.splice(i, 1);
+        }
+    }
+}
+
+// ==================== Item Inventory UI ====================
+function getItemIcon(type) {
+    const icons = {
+        drone: '🔵',
+        orbital: '🟠',
+        thunderNova: '⚡',
+        flameAura: '🔥',
+        shockwave: '💨'
+    };
+    return icons[type] || '❓';
+}
+
+function updateItemInventoryUI() {
+    const container = document.getElementById('itemInventory');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    for (const item of survival.items) {
+        const slot = document.createElement('div');
+        slot.className = 'item-slot';
+
+        const icon = getItemIcon(item.type);
+
+        slot.innerHTML = `
+            <div class="item-icon">${icon}</div>
+            <div class="item-info">
+                <div class="item-name">${item.name}</div>
+                <div class="item-level">Lv. ${item.level}</div>
+            </div>
+        `;
+
+        container.appendChild(slot);
+    }
 }
 
 // ==================== Special Effect Functions ====================
@@ -2066,6 +2189,9 @@ function addItem(itemType) {
         createFlameAuraMesh(item);
     }
     // Thunder Nova and Shockwave don't have persistent meshes
+
+    // Update UI
+    updateItemInventoryUI();
 }
 
 // Create item data
@@ -2619,6 +2745,7 @@ function generateUpgrades() {
                     existingDrone.level++;
                     existingDrone.damage *= 1.3;
                     existingDrone.fireRate *= 1.1;
+                    updateItemInventoryUI();
                 } else {
                     addItem('drone');
                 }
@@ -2633,6 +2760,7 @@ function generateUpgrades() {
                     existingOrbital.level++;
                     existingOrbital.damage *= 1.3;
                     existingOrbital.orbitSpeed *= 1.05;
+                    updateItemInventoryUI();
                 } else {
                     addItem('orbital');
                 }
@@ -2649,6 +2777,7 @@ function generateUpgrades() {
                     existingThunderNova.level++;
                     existingThunderNova.damage *= 1.3;
                     existingThunderNova.radius *= 1.1;
+                    updateItemInventoryUI();
                 } else {
                     addItem('thunderNova');
                 }
@@ -2663,6 +2792,7 @@ function generateUpgrades() {
                     existingFlameAura.level++;
                     existingFlameAura.damage *= 1.3;
                     existingFlameAura.radius *= 1.1;
+                    updateItemInventoryUI();
                 } else {
                     addItem('flameAura');
                 }
@@ -2678,6 +2808,7 @@ function generateUpgrades() {
                     existingShockwave.damage *= 1.3;
                     existingShockwave.radius *= 1.1;
                     existingShockwave.knockback *= 1.15;
+                    updateItemInventoryUI();
                 } else {
                     addItem('shockwave');
                 }

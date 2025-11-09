@@ -13,7 +13,7 @@ const GameMode = {
 };
 
 let currentState = GameState.MENU;
-let currentMode = GameMode.SURVIVAL; // Always survival mode
+let currentMode = null; // Will be selected by player
 let scene, engine, camera;
 let canvas;
 let mouseSensitivity = 1.0;
@@ -227,7 +227,12 @@ window.addEventListener('DOMContentLoaded', function() {
     scene = createScene();
 
     // UI event listeners
-    document.getElementById('startGameBtn').addEventListener('click', () => {
+    document.getElementById('waveDefenseBtn').addEventListener('click', () => {
+        currentMode = GameMode.WAVE_DEFENSE;
+        startWaveDefenseMode();
+    });
+    document.getElementById('survivalBtn').addEventListener('click', () => {
+        currentMode = GameMode.SURVIVAL;
         startSurvivalMode();
     });
     document.getElementById('restartBtn').addEventListener('click', () => {
@@ -1532,7 +1537,9 @@ function updateItemInventoryUI() {
 function updateCrosshair() {
     if (currentState !== GameState.PLAYING) return;
 
-    const crosshair = document.getElementById('crosshair');
+    // Get the appropriate crosshair based on game mode
+    const crosshairId = currentMode === GameMode.WAVE_DEFENSE ? 'waveCrosshair' : 'crosshair';
+    const crosshair = document.getElementById(crosshairId);
     if (!crosshair) return;
 
     // Raycast from camera center
@@ -1550,7 +1557,9 @@ function updateCrosshair() {
 }
 
 function showHitMarker() {
-    const hitMarker = document.getElementById('hitMarker');
+    // Get the appropriate hit marker based on game mode
+    const hitMarkerId = currentMode === GameMode.WAVE_DEFENSE ? 'waveHitMarker' : 'hitMarker';
+    const hitMarker = document.getElementById(hitMarkerId);
     if (!hitMarker) return;
 
     // Remove existing show class
@@ -1910,19 +1919,24 @@ function setupInputHandlers() {
 // ==================== UI Updates ====================
 function updateHealthUI() {
     const healthPercent = (player.health / player.maxHealth) * 100;
-    document.getElementById('healthFill').style.width = healthPercent + '%';
-    document.getElementById('healthText').textContent =
-        Math.ceil(player.health) + '/' + player.maxHealth;
+    const healthText = Math.ceil(player.health) + '/' + player.maxHealth;
+
+    if (currentMode === GameMode.WAVE_DEFENSE) {
+        document.getElementById('waveHealthFill').style.width = healthPercent + '%';
+        document.getElementById('waveHealthText').textContent = healthText;
+    }
 }
 
 function updateAmmoUI() {
-    document.getElementById('currentAmmo').textContent = player.weapon.currentAmmo;
-    document.getElementById('maxAmmo').textContent = player.weapon.maxAmmo;
+    if (currentMode === GameMode.WAVE_DEFENSE) {
+        document.getElementById('waveAmmoCount').textContent =
+            player.weapon.currentAmmo + '/' + player.weapon.maxAmmo;
+    }
 }
 
 function updateWaveUI() {
     document.getElementById('waveNumber').textContent = wave.current;
-    document.getElementById('enemyCount').textContent = wave.enemiesAlive;
+    document.getElementById('enemiesRemaining').textContent = wave.enemiesAlive;
 }
 
 // ==================== Fullscreen ====================

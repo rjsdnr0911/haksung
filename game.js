@@ -3,10 +3,17 @@ const GameState = {
     MENU: 'menu',
     PLAYING: 'playing',
     PERK_SELECT: 'perk_select',
+    LEVEL_UP: 'level_up',
     GAME_OVER: 'game_over'
 };
 
+const GameMode = {
+    WAVE_DEFENSE: 'wave_defense',
+    SURVIVAL: 'survival'
+};
+
 let currentState = GameState.MENU;
+let currentMode = null;
 let scene, engine, camera;
 let canvas;
 
@@ -173,6 +180,29 @@ let joystickVector = { x: 0, y: 0 };
 let touchLookStart = null;
 let isShooting = false;
 
+// ==================== Survival Mode Variables ====================
+let survival = {
+    // Player stats
+    level: 1,
+    xp: 0,
+    xpToNextLevel: 10,
+    killCount: 0,
+
+    // Timer
+    timeElapsed: 0,
+    maxTime: 1200, // 20 minutes = 1200 seconds
+
+    // Weapons (dual wielding)
+    leftWeapon: null,
+    rightWeapon: null,
+
+    // Auto-attack items
+    items: [],
+
+    // Map
+    mapSize: 80
+};
+
 // ==================== Initialization ====================
 window.addEventListener('DOMContentLoaded', function() {
     canvas = document.getElementById('renderCanvas');
@@ -182,7 +212,14 @@ window.addEventListener('DOMContentLoaded', function() {
     scene = createScene();
 
     // UI event listeners
-    document.getElementById('startBtn').addEventListener('click', startGame);
+    document.getElementById('waveDefenseBtn').addEventListener('click', () => {
+        currentMode = GameMode.WAVE_DEFENSE;
+        startWaveDefenseMode();
+    });
+    document.getElementById('survivalBtn').addEventListener('click', () => {
+        currentMode = GameMode.SURVIVAL;
+        startSurvivalMode();
+    });
     document.getElementById('restartBtn').addEventListener('click', () => {
         location.reload();
     });
@@ -384,10 +421,10 @@ function updateLaserSight() {
 }
 
 // ==================== Game Logic ====================
-function startGame() {
+function startWaveDefenseMode() {
     currentState = GameState.PLAYING;
     document.getElementById('startScreen').classList.add('hidden');
-    document.getElementById('hud').classList.remove('hidden');
+    document.getElementById('waveHud').classList.remove('hidden');
 
     // Show mobile controls if on mobile
     if (isMobile) {
@@ -400,6 +437,38 @@ function startGame() {
 
     // Start first wave
     startWave(1);
+}
+
+function startSurvivalMode() {
+    currentState = GameState.PLAYING;
+    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('survivalHud').classList.remove('hidden');
+
+    // Request pointer lock
+    if (!isMobile) {
+        canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
+        canvas.requestPointerLock();
+    }
+
+    // Initialize survival mode
+    survival.level = 1;
+    survival.xp = 0;
+    survival.xpToNextLevel = 10;
+    survival.killCount = 0;
+    survival.timeElapsed = 0;
+
+    // Initialize dual weapons (basic starting weapons)
+    survival.leftWeapon = createWeapon('pistol');
+    survival.rightWeapon = createWeapon('rifle');
+
+    // Create large map
+    createSurvivalMap();
+
+    // Start survival timer
+    startSurvivalTimer();
+
+    // Start spawning enemies
+    startSurvivalSpawner();
 }
 
 function startWave(waveNumber) {
@@ -573,15 +642,21 @@ function updateGame() {
     // Update laser sight
     updateLaserSight();
 
-    // Regeneration perk
-    if (player.hasRegen) {
-        player.health = Math.min(player.maxHealth, player.health + 5 * deltaTime);
-        updateHealthUI();
-    }
+    // Mode-specific updates
+    if (currentMode === GameMode.SURVIVAL) {
+        updateSurvivalMode(deltaTime);
+        updateSurvivalHealthUI();
+    } else if (currentMode === GameMode.WAVE_DEFENSE) {
+        // Regeneration perk
+        if (player.hasRegen) {
+            player.health = Math.min(player.maxHealth, player.health + 5 * deltaTime);
+            updateHealthUI();
+        }
 
-    // Check wave clear
-    if (wave.enemiesAlive === 0 && currentState === GameState.PLAYING) {
-        onWaveClear();
+        // Check wave clear
+        if (wave.enemiesAlive === 0 && currentState === GameState.PLAYING) {
+            onWaveClear();
+        }
     }
 }
 
@@ -1150,14 +1225,31 @@ function setupInputHandlers() {
         keys[e.key] = false;
     });
 
-    canvas.addEventListener('click', () => {
+    canvas.addEventListener('mousedown', (e) => {
         if (currentState === GameState.PLAYING) {
-            if (!isPointerLocked) {
+            if (!isPointerLocked && !isMobile) {
                 canvas.requestPointerLock();
             } else {
-                shoot();
+                // Survival mode: dual weapons
+                if (currentMode === GameMode.SURVIVAL) {
+                    if (e.button === 0) { // Left click
+                        shootWeapon(survival.leftWeapon, true);
+                    } else if (e.button === 2) { // Right click
+                        shootWeapon(survival.rightWeapon, false);
+                    }
+                } else {
+                    // Wave defense mode: single weapon
+                    if (e.button === 0) {
+                        shoot();
+                    }
+                }
             }
         }
+    });
+
+    // Prevent context menu on right click
+    canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
     });
 
     document.addEventListener('pointerlockchange', () => {
@@ -1351,4 +1443,386 @@ function startAutoShoot() {
             startAutoShoot();
         }
     }, 100);
+}
+// ==================== Survival Mode Functions ====================
+
+// Weapon creation
+function createWeapon(type) {
+    const weapons = {
+        pistol: {
+            name: '권총',
+            damage: 15,
+            fireRate: 8,
+            maxAmmo: 15,
+            currentAmmo: 15,
+            reloadTime: 1000,
+            spread: 0.02
+        },
+        rifle: {
+            name: '라이플',
+            damage: 25,
+            fireRate: 6,
+            maxAmmo: 30,
+            currentAmmo: 30,
+            reloadTime: 2000,
+            spread: 0.01
+        },
+        shotgun: {
+            name: '샷건',
+            damage: 50,
+            fireRate: 2,
+            maxAmmo: 8,
+            currentAmmo: 8,
+            reloadTime: 2500,
+            spread: 0.1,
+            pellets: 6
+        },
+        smg: {
+            name: 'SMG',
+            damage: 12,
+            fireRate: 15,
+            maxAmmo: 40,
+            currentAmmo: 40,
+            reloadTime: 1500,
+            spread: 0.03
+        }
+    };
+
+    const weapon = { ...weapons[type] };
+    weapon.type = type;
+    weapon.isReloading = false;
+    weapon.lastShotTime = 0;
+    weapon.level = 1;
+
+    return weapon;
+}
+
+// Create large survival map
+function createSurvivalMap() {
+    // Remove old arena if exists
+    if (arena) arena.dispose();
+
+    // Create large ground plane
+    const ground = BABYLON.MeshBuilder.CreateGround("survivalGround", {
+        width: survival.mapSize,
+        height: survival.mapSize
+    }, scene);
+    ground.position.y = 0;
+
+    const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
+    groundMat.diffuseColor = new BABYLON.Color3(0.2, 0.3, 0.2);
+    groundMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+    ground.material = groundMat;
+    ground.checkCollisions = true;
+
+    arena = ground;
+
+    // Add boundary walls (invisible)
+    const halfSize = survival.mapSize / 2;
+    // Just use the ground bounds for collision detection
+}
+
+// Start survival timer
+function startSurvivalTimer() {
+    // Timer will update in updateSurvivalMode()
+}
+
+// Start enemy spawner for survival
+function startSurvivalSpawner() {
+    // Spawning will be handled in updateSurvivalMode()
+}
+
+// Update survival mode
+function updateSurvivalMode(deltaTime) {
+    // Update timer
+    survival.timeElapsed += deltaTime;
+    updateTimerUI();
+
+    // Check victory
+    if (survival.timeElapsed >= survival.maxTime) {
+        victoryScreen();
+        return;
+    }
+
+    // Spawn enemies based on time
+    spawnSurvivalEnemies(deltaTime);
+
+    // Update player weapons
+    if (survival.leftWeapon) {
+        updateWeaponCooldown(survival.leftWeapon, deltaTime);
+    }
+    if (survival.rightWeapon) {
+        updateWeaponCooldown(survival.rightWeapon, deltaTime);
+    }
+
+    // Update auto-attack items
+    updateSurvivalItems(deltaTime);
+
+    // Keep player within bounds
+    const halfSize = survival.mapSize / 2 - 2;
+    if (Math.abs(camera.position.x) > halfSize) {
+        camera.position.x = Math.sign(camera.position.x) * halfSize;
+    }
+    if (Math.abs(camera.position.z) > halfSize) {
+        camera.position.z = Math.sign(camera.position.z) * halfSize;
+    }
+}
+
+function updateWeaponCooldown(weapon, deltaTime) {
+    if (weapon.isReloading) {
+        // Reloading is handled by timeout
+    }
+}
+
+let enemySpawnTimer = 0;
+let enemySpawnRate = 1.0; // seconds between spawns
+
+function spawnSurvivalEnemies(deltaTime) {
+    enemySpawnTimer += deltaTime;
+
+    // Spawn rate increases over time
+    const timeMinutes = survival.timeElapsed / 60;
+    enemySpawnRate = Math.max(0.2, 1.0 - timeMinutes * 0.05);
+
+    if (enemySpawnTimer >= enemySpawnRate) {
+        enemySpawnTimer = 0;
+
+        // Spawn enemy at random position on map edge
+        const halfSize = survival.mapSize / 2 - 2;
+        const side = Math.floor(Math.random() * 4);
+        let x, z;
+
+        switch (side) {
+            case 0: // top
+                x = (Math.random() - 0.5) * survival.mapSize;
+                z = halfSize;
+                break;
+            case 1: // right
+                x = halfSize;
+                z = (Math.random() - 0.5) * survival.mapSize;
+                break;
+            case 2: // bottom
+                x = (Math.random() - 0.5) * survival.mapSize;
+                z = -halfSize;
+                break;
+            case 3: // left
+                x = -halfSize;
+                z = (Math.random() - 0.5) * survival.mapSize;
+                break;
+        }
+
+        // Determine enemy type based on time
+        let enemyType = 'normal';
+        if (timeMinutes > 10) {
+            const rand = Math.random();
+            if (rand < 0.3) enemyType = 'runner';
+            else if (rand < 0.5) enemyType = 'tank';
+            else if (rand < 0.7) enemyType = 'shooter';
+        } else if (timeMinutes > 5) {
+            const rand = Math.random();
+            if (rand < 0.2) enemyType = 'runner';
+            else if (rand < 0.4) enemyType = 'tank';
+        }
+
+        createEnemyByType(enemyType, x, z);
+    }
+}
+
+function updateSurvivalItems(deltaTime) {
+    // Update auto-attack items (will implement later)
+}
+
+// Shoot with left or right weapon
+function shootWeapon(weapon, isLeft) {
+    if (!weapon) return;
+
+    const now = Date.now();
+    const shotDelay = 1000 / weapon.fireRate;
+    if (now - weapon.lastShotTime < shotDelay) return;
+    if (weapon.isReloading) return;
+    if (weapon.currentAmmo <= 0) {
+        reloadWeapon(weapon, isLeft);
+        return;
+    }
+
+    weapon.currentAmmo--;
+    weapon.lastShotTime = now;
+    updateSurvivalWeaponUI();
+
+    // Shoot
+    const ray = camera.getForwardRay(100);
+    const muzzlePos = camera.position.add(new BABYLON.Vector3(isLeft ? -0.3 : 0.3, -0.15, 1.0));
+
+    // Shotgun fires multiple pellets
+    if (weapon.type === 'shotgun') {
+        for (let i = 0; i < weapon.pellets; i++) {
+            const spread = weapon.spread;
+            const spreadX = (Math.random() - 0.5) * spread;
+            const spreadY = (Math.random() - 0.5) * spread;
+            const spreadDir = ray.direction.clone();
+            spreadDir.x += spreadX;
+            spreadDir.y += spreadY;
+            spreadDir.normalize();
+
+            fireBullet(muzzlePos, spreadDir, weapon.damage);
+        }
+    } else {
+        fireBullet(muzzlePos, ray.direction, weapon.damage);
+    }
+
+    createMuzzleFlash(muzzlePos);
+}
+
+function fireBullet(origin, direction, damage) {
+    createBulletTrace(origin, direction);
+
+    const ray = new BABYLON.Ray(origin, direction, 100);
+    const hit = scene.pickWithRay(ray, (mesh) => {
+        return wave.enemies.includes(mesh);
+    });
+
+    if (hit.pickedMesh) {
+        damageEnemy(hit.pickedMesh, damage);
+
+        // Add XP on kill
+        if (hit.pickedMesh.health <= 0) {
+            addXP(5);
+        }
+    }
+}
+
+function reloadWeapon(weapon, isLeft) {
+    if (weapon.isReloading) return;
+    if (weapon.currentAmmo === weapon.maxAmmo) return;
+
+    weapon.isReloading = true;
+    setTimeout(() => {
+        weapon.currentAmmo = weapon.maxAmmo;
+        weapon.isReloading = false;
+        updateSurvivalWeaponUI();
+    }, weapon.reloadTime);
+}
+
+// XP system
+function addXP(amount) {
+    survival.xp += amount;
+
+    while (survival.xp >= survival.xpToNextLevel) {
+        survival.xp -= survival.xpToNextLevel;
+        survival.level++;
+        survival.xpToNextLevel = Math.floor(10 * Math.pow(1.2, survival.level - 1));
+        levelUp();
+    }
+
+    updateXPUI();
+}
+
+function levelUp() {
+    currentState = GameState.LEVEL_UP;
+    showLevelUpScreen();
+}
+
+function showLevelUpScreen() {
+    document.getElementById('levelUpScreen').classList.remove('hidden');
+
+    // Generate 3 random upgrades
+    const upgrades = generateUpgrades();
+    const container = document.getElementById('levelUpContainer');
+    container.innerHTML = '';
+
+    upgrades.forEach(upgrade => {
+        const card = document.createElement('div');
+        card.className = 'perk-card';
+        card.innerHTML = `
+            <span class="perk-type">${upgrade.type}</span>
+            <h3>${upgrade.name}</h3>
+            <p>${upgrade.description}</p>
+        `;
+        card.addEventListener('click', () => applyUpgrade(upgrade));
+        container.appendChild(card);
+    });
+}
+
+function generateUpgrades() {
+    // Simple upgrade pool
+    const allUpgrades = [
+        { type: '무기', name: '데미지 증가', description: '모든 무기 데미지 +20%', effect: () => {
+            if (survival.leftWeapon) survival.leftWeapon.damage *= 1.2;
+            if (survival.rightWeapon) survival.rightWeapon.damage *= 1.2;
+        }},
+        { type: '무기', name: '연사 속도', description: '모든 무기 연사속도 +20%', effect: () => {
+            if (survival.leftWeapon) survival.leftWeapon.fireRate *= 1.2;
+            if (survival.rightWeapon) survival.rightWeapon.fireRate *= 1.2;
+        }},
+        { type: '생존', name: '체력 증가', description: '최대 HP +50', effect: () => {
+            player.maxHealth += 50;
+            player.health += 50;
+            updateSurvivalHealthUI();
+        }},
+        { type: '생존', name: '이동 속도', description: '이동 속도 +20%', effect: () => {
+            player.moveSpeed *= 1.2;
+        }},
+    ];
+
+    // Pick 3 random
+    const shuffled = allUpgrades.sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, 3);
+}
+
+function applyUpgrade(upgrade) {
+    upgrade.effect();
+    document.getElementById('levelUpScreen').classList.add('hidden');
+    currentState = GameState.PLAYING;
+}
+
+// UI updates
+function updateTimerUI() {
+    const minutes = Math.floor(survival.timeElapsed / 60);
+    const seconds = Math.floor(survival.timeElapsed % 60);
+    const totalMinutes = Math.floor(survival.maxTime / 60);
+    const totalSeconds = Math.floor(survival.maxTime % 60);
+
+    document.getElementById('timer').textContent =
+        `${pad(minutes)}:${pad(seconds)} / ${pad(totalMinutes)}:${pad(totalSeconds)}`;
+}
+
+function pad(num) {
+    return num < 10 ? '0' + num : num;
+}
+
+function updateXPUI() {
+    const percent = (survival.xp / survival.xpToNextLevel) * 100;
+    document.getElementById('xpFill').style.width = percent + '%';
+    document.getElementById('playerLevel').textContent = survival.level;
+}
+
+function updateSurvivalHealthUI() {
+    const healthPercent = (player.health / player.maxHealth) * 100;
+    document.getElementById('survivalHealthFill').style.width = healthPercent + '%';
+    document.getElementById('survivalHealthText').textContent =
+        Math.ceil(player.health) + '/' + player.maxHealth;
+}
+
+function updateSurvivalWeaponUI() {
+    if (survival.leftWeapon) {
+        document.getElementById('leftWeaponName').textContent = survival.leftWeapon.name;
+        document.getElementById('leftWeaponAmmo').textContent =
+            survival.leftWeapon.currentAmmo + '/' + survival.leftWeapon.maxAmmo;
+    }
+
+    if (survival.rightWeapon) {
+        document.getElementById('rightWeaponName').textContent = survival.rightWeapon.name;
+        document.getElementById('rightWeaponAmmo').textContent =
+            survival.rightWeapon.currentAmmo + '/' + survival.rightWeapon.maxAmmo;
+    }
+}
+
+function victoryScreen() {
+    currentState = GameState.GAME_OVER;
+    document.getElementById('survivalHud').classList.add('hidden');
+    document.getElementById('gameOverScreen').style.display = 'flex';
+    document.getElementById('gameOverScreen').querySelector('h1').textContent = '승리!';
+    document.getElementById('finalWave').textContent = `생존 시간: 20:00`;
+
+    document.exitPointerLock();
 }

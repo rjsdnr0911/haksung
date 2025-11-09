@@ -217,6 +217,45 @@
             display: none !important;
         }
 
+        /* Mode Selection */
+        .mode-card {
+            background: rgba(50, 50, 50, 0.9);
+            border: 3px solid #888;
+            border-radius: 10px;
+            padding: 30px;
+            width: 300px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .mode-card:hover {
+            border-color: #ff4444;
+            transform: translateY(-5px);
+        }
+        .mode-card h2 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #ff4444;
+        }
+        .mode-card p {
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+            color: #ccc;
+        }
+        .mode-button {
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            font-size: 1.3rem;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        .mode-button:hover {
+            background: #ff6666;
+            transform: scale(1.05);
+        }
+
         /* Mobile Controls */
         #mobileControls {
             display: none;
@@ -352,20 +391,31 @@
         <!-- Start Screen -->
         <div id="startScreen">
             <h1>FPS DEFENSE</h1>
-            <p style="font-size: 1.5rem; margin-bottom: 2rem;">웨이브를 막아내고 살아남으세요!</p>
-            <button id="startBtn">게임 시작</button>
+            <p style="font-size: 1.5rem; margin-bottom: 2rem;">게임 모드를 선택하세요</p>
+            <div style="display: flex; gap: 30px; margin-bottom: 3rem;">
+                <div class="mode-card">
+                    <h2>웨이브 디펜스</h2>
+                    <p>제한된 플랫폼에서 웨이브를 막아내세요</p>
+                    <button id="waveDefenseBtn" class="mode-button">시작</button>
+                </div>
+                <div class="mode-card">
+                    <h2>서바이벌 모드</h2>
+                    <p>20분간 생존하며 레벨업하세요</p>
+                    <button id="survivalBtn" class="mode-button">시작</button>
+                </div>
+            </div>
             <div class="controls">
                 <h3>조작법</h3>
-                <p>WASD: 이동 (플랫폼 내에서만)</p>
+                <p>WASD: 이동</p>
                 <p>마우스: 시점 이동</p>
-                <p>좌클릭: 사격</p>
+                <p>좌/우클릭: 양손 무기 사격</p>
                 <p>R: 재장전</p>
-                <p>F: 전체화면 토글</p>
+                <p>F: 전체화면</p>
             </div>
         </div>
 
-        <!-- HUD -->
-        <div id="hud" class="hidden">
+        <!-- Wave Defense HUD -->
+        <div id="waveHud" class="hidden">
             <div id="health">
                 HP: <span id="healthText">100/100</span>
                 <div class="health-bar">
@@ -380,6 +430,60 @@
                 <span id="currentAmmo">30</span> / <span id="maxAmmo">30</span>
             </div>
             <div id="crosshair">+</div>
+        </div>
+
+        <!-- Survival Mode HUD -->
+        <div id="survivalHud" class="hidden">
+            <!-- Top Bar -->
+            <div style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); text-align: center;">
+                <div id="timer" style="font-size: 2.5rem; font-weight: bold; color: #ffaa00; text-shadow: 2px 2px 4px black;">
+                    00:00 / 20:00
+                </div>
+                <div id="levelBar" style="margin-top: 10px;">
+                    <div style="font-size: 1.3rem; margin-bottom: 5px;">Lv <span id="playerLevel">1</span></div>
+                    <div style="width: 400px; height: 20px; background: rgba(0,0,0,0.7); border: 2px solid white; border-radius: 10px; overflow: hidden;">
+                        <div id="xpFill" style="height: 100%; background: linear-gradient(to right, #44ff44, #88ff88); width: 0%; transition: width 0.3s;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Health -->
+            <div style="position: absolute; top: 20px; left: 20px;">
+                <div style="font-size: 1.3rem; margin-bottom: 5px;">HP: <span id="survivalHealthText">100/100</span></div>
+                <div class="health-bar">
+                    <div class="health-fill" id="survivalHealthFill" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- Kill Counter -->
+            <div id="killCounter" style="position: absolute; top: 20px; right: 20px; font-size: 1.5rem; text-shadow: 2px 2px 4px black;">
+                Kills: <span id="killCount">0</span>
+            </div>
+
+            <!-- Weapon Display -->
+            <div style="position: absolute; bottom: 30px; left: 30px; right: 30px; display: flex; justify-content: space-between;">
+                <div id="leftWeapon" style="font-size: 1.3rem; text-shadow: 2px 2px 4px black;">
+                    <div style="color: #ffaa00;">좌클릭</div>
+                    <div id="leftWeaponName">권총</div>
+                    <div id="leftWeaponAmmo">15/15</div>
+                </div>
+                <div id="rightWeapon" style="font-size: 1.3rem; text-align: right; text-shadow: 2px 2px 4px black;">
+                    <div style="color: #ffaa00;">우클릭</div>
+                    <div id="rightWeaponName">라이플</div>
+                    <div id="rightWeaponAmmo">30/30</div>
+                </div>
+            </div>
+
+            <div id="crosshair" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2rem; color: white; text-shadow: 0 0 5px black;">+</div>
+        </div>
+
+        <!-- Level Up Screen -->
+        <div id="levelUpScreen" class="screen hidden">
+            <h2 style="font-size: 3rem; margin-bottom: 1rem; color: #44ff44;">레벨 업!</h2>
+            <p style="font-size: 1.3rem; margin-bottom: 2rem;">업그레이드를 선택하세요</p>
+            <div class="perk-container" id="levelUpContainer">
+                <!-- Upgrade cards will be dynamically added here -->
+            </div>
         </div>
 
         <!-- Mobile Controls -->

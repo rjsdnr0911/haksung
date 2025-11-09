@@ -1225,17 +1225,6 @@ function shoot() {
     const muzzleOffset = new BABYLON.Vector3(0.3, -0.15, 1.0);
     const muzzlePos = camera.position.add(muzzleOffset);
 
-    // Visual bullet trace from muzzle (change color for special effects)
-    if (player.weapon.hasFlame) {
-        createBulletTrace(muzzlePos, ray.direction, new BABYLON.Color3(1, 0.5, 0)); // Orange
-    } else if (player.weapon.hasFreeze) {
-        createBulletTrace(muzzlePos, ray.direction, new BABYLON.Color3(0, 0.8, 1)); // Cyan
-    } else if (player.weapon.hasChain) {
-        createBulletTrace(muzzlePos, ray.direction, new BABYLON.Color3(0.5, 0.5, 1)); // Electric blue
-    } else {
-        createBulletTrace(muzzlePos, ray.direction);
-    }
-
     // Create muzzle flash
     createMuzzleFlash(muzzlePos);
 
@@ -2652,8 +2641,6 @@ function shootWeapon(weapon, isLeft) {
 }
 
 function fireBullet(origin, direction, damage) {
-    createBulletTrace(origin, direction);
-
     const ray = new BABYLON.Ray(origin, direction, 100);
     const hit = scene.pickWithRay(ray, (mesh) => {
         return wave.enemies.includes(mesh);

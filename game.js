@@ -767,6 +767,20 @@ function startWaveDefenseMode() {
     document.getElementById('startScreen').classList.add('hidden');
     document.getElementById('waveHud').classList.remove('hidden');
 
+    // Initialize player stats for Wave Defense
+    player.health = 100;
+    player.maxHealth = 100;
+    player.weapon.damage = 20;
+    player.weapon.fireRate = 10;
+    player.weapon.maxAmmo = 30;
+    player.weapon.currentAmmo = 30;
+    player.weapon.reloadTime = 2000;
+    player.weapon.isReloading = false;
+    perks = [];
+
+    updateHealthUI();
+    updateAmmoUI();
+
     // Show mobile controls if on mobile
     if (isMobile) {
         document.getElementById('mobileControls').classList.add('active');
@@ -1924,8 +1938,14 @@ function showPerkSelection() {
     selectedPerks.forEach(perk => {
         const card = document.createElement('div');
         card.className = 'perk-card';
+
+        let perkTypeText = '특수';
+        if (perk.type === 'weapon') perkTypeText = '무기';
+        else if (perk.type === 'survival') perkTypeText = '생존';
+        else if (perk.type === 'special') perkTypeText = '특수';
+
         card.innerHTML = `
-            <span class="perk-type">${perk.type === 'weapon' ? '무기' : '생존'}</span>
+            <span class="perk-type">${perkTypeText}</span>
             <h3>${perk.name}</h3>
             <p>${perk.description}</p>
         `;
@@ -1955,12 +1975,22 @@ function selectPerk(perk) {
 
 function gameOver() {
     currentState = GameState.GAME_OVER;
-    document.getElementById('hud').classList.add('hidden');
+
+    // Hide appropriate HUD based on game mode
+    if (currentMode === GameMode.WAVE_DEFENSE) {
+        document.getElementById('waveHud').classList.add('hidden');
+        hideBossHealthBar();
+    } else if (currentMode === GameMode.SURVIVAL) {
+        document.getElementById('survivalHud').classList.add('hidden');
+    }
+
     document.getElementById('gameOverScreen').style.display = 'flex';
     document.getElementById('finalWave').textContent = wave.current;
 
     // Exit pointer lock
-    document.exitPointerLock();
+    if (document.exitPointerLock) {
+        document.exitPointerLock();
+    }
 }
 
 // ==================== Input Handlers ====================

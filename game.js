@@ -2040,6 +2040,12 @@ function updateSurvivalItems(deltaTime) {
             updateDrone(item, deltaTime);
         } else if (item.type === 'orbital') {
             updateOrbital(item, deltaTime);
+        } else if (item.type === 'thunderNova') {
+            updateThunderNova(item, deltaTime);
+        } else if (item.type === 'flameAura') {
+            updateFlameAura(item, deltaTime);
+        } else if (item.type === 'shockwave') {
+            updateShockwave(item, deltaTime);
         }
     }
 }
@@ -2056,7 +2062,10 @@ function addItem(itemType) {
         createDroneMesh(item);
     } else if (item.type === 'orbital') {
         createOrbitalMesh(item);
+    } else if (item.type === 'flameAura') {
+        createFlameAuraMesh(item);
     }
+    // Thunder Nova and Shockwave don't have persistent meshes
 }
 
 // Create item data
@@ -2084,6 +2093,33 @@ function createItem(type) {
             angle: Math.random() * Math.PI * 2,
             lastHitTime: 0,
             hitCooldown: 0.5 // hits per second
+        },
+        thunderNova: {
+            type: 'thunderNova',
+            name: '썬더 노바',
+            level: 1,
+            damage: 50,
+            radius: 8,
+            cooldown: 5, // seconds
+            lastTriggerTime: 0
+        },
+        flameAura: {
+            type: 'flameAura',
+            name: '플레임 오라',
+            level: 1,
+            damage: 15, // DPS
+            radius: 4,
+            tickRate: 0.5 // damage tick every 0.5 seconds
+        },
+        shockwave: {
+            type: 'shockwave',
+            name: '충격파',
+            level: 1,
+            damage: 20,
+            radius: 6,
+            knockback: 5,
+            cooldown: 6, // seconds
+            lastTriggerTime: 0
         }
     };
 
@@ -2131,6 +2167,27 @@ function createOrbitalMesh(item) {
 
     item.mesh = orbital;
     itemMeshes.push(orbital);
+}
+
+// Create flame aura visual mesh
+function createFlameAuraMesh(item) {
+    const aura = BABYLON.MeshBuilder.CreateTorus("flameAura", {
+        diameter: item.radius * 2,
+        thickness: 0.3,
+        tessellation: 32
+    }, scene);
+
+    const auraMat = new BABYLON.StandardMaterial("flameAuraMat", scene);
+    auraMat.emissiveColor = new BABYLON.Color3(1, 0.3, 0);
+    auraMat.diffuseColor = new BABYLON.Color3(1, 0.5, 0);
+    auraMat.alpha = 0.4;
+    aura.material = auraMat;
+
+    // Rotate to be flat on ground
+    aura.rotation.x = Math.PI / 2;
+
+    item.mesh = aura;
+    itemMeshes.push(aura);
 }
 
 // Update drone behavior
@@ -2188,6 +2245,149 @@ function updateOrbital(item, deltaTime) {
                 item.lastHitTime = now;
                 break; // Only hit one enemy at a time
             }
+        }
+    }
+}
+
+// Update thunder nova behavior
+function updateThunderNova(item, deltaTime) {
+    const now = Date.now() / 1000; // Convert to seconds
+
+    if (now - item.lastTriggerTime >= item.cooldown) {
+        item.lastTriggerTime = now;
+        triggerThunderNova(item);
+    }
+}
+
+function triggerThunderNova(item) {
+    const playerPos = camera.position;
+
+    // Visual effect - expanding lightning sphere
+    const nova = BABYLON.MeshBuilder.CreateSphere("thunderNova", {
+        diameter: item.radius * 2,
+        segments: 16
+    }, scene);
+    nova.position = playerPos.clone();
+
+    const novaMat = new BABYLON.StandardMaterial("thunderNovaMat", scene);
+    novaMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 1);
+    novaMat.alpha = 0.6;
+    nova.material = novaMat;
+
+    // Animate expansion
+    let scale = 0.1;
+    const expandInterval = setInterval(() => {
+        scale += 0.15;
+        nova.scaling = new BABYLON.Vector3(scale, scale, scale);
+        novaMat.alpha = 0.6 * (1 - scale / 2);
+
+        if (scale >= 1) {
+            clearInterval(expandInterval);
+            setTimeout(() => nova.dispose(), 100);
+        }
+    }, 30);
+
+    // Damage all enemies in radius
+    for (const enemy of wave.enemies) {
+        const distance = BABYLON.Vector3.Distance(playerPos, enemy.position);
+        if (distance < item.radius) {
+            damageEnemy(enemy, item.damage);
+
+            // Lightning visual from player to enemy
+            createLightningBolt(playerPos, enemy.position);
+        }
+    }
+}
+
+function createLightningBolt(from, to) {
+    const bolt = BABYLON.MeshBuilder.CreateLines("lightning", {
+        points: [from, to]
+    }, scene);
+    bolt.color = new BABYLON.Color3(0.5, 0.5, 1);
+
+    setTimeout(() => bolt.dispose(), 100);
+}
+
+// Update flame aura behavior
+function updateFlameAura(item, deltaTime) {
+    const playerPos = camera.position;
+
+    // Update mesh position
+    if (item.mesh) {
+        item.mesh.position = new BABYLON.Vector3(playerPos.x, 0.3, playerPos.z);
+
+        // Rotate for visual effect
+        item.mesh.rotation.y += deltaTime * 2;
+    }
+
+    // Initialize tick timer
+    if (!item.tickTimer) item.tickTimer = 0;
+    item.tickTimer += deltaTime;
+
+    // Damage enemies in radius every tick
+    if (item.tickTimer >= item.tickRate) {
+        item.tickTimer = 0;
+
+        for (const enemy of wave.enemies) {
+            const distance = BABYLON.Vector3.Distance(playerPos, enemy.position);
+            if (distance < item.radius) {
+                damageEnemy(enemy, item.damage * item.tickRate);
+            }
+        }
+    }
+}
+
+// Update shockwave behavior
+function updateShockwave(item, deltaTime) {
+    const now = Date.now() / 1000;
+
+    if (now - item.lastTriggerTime >= item.cooldown) {
+        item.lastTriggerTime = now;
+        triggerShockwave(item);
+    }
+}
+
+function triggerShockwave(item) {
+    const playerPos = camera.position;
+
+    // Visual effect - expanding ring
+    const wave = BABYLON.MeshBuilder.CreateTorus("shockwave", {
+        diameter: item.radius * 2,
+        thickness: 0.5,
+        tessellation: 32
+    }, scene);
+    wave.position = playerPos.clone();
+    wave.position.y = 0.5;
+    wave.rotation.x = Math.PI / 2;
+
+    const waveMat = new BABYLON.StandardMaterial("shockwaveMat", scene);
+    waveMat.emissiveColor = new BABYLON.Color3(1, 1, 0.5);
+    waveMat.alpha = 0.7;
+    wave.material = waveMat;
+
+    // Animate expansion
+    let scale = 0.1;
+    const expandInterval = setInterval(() => {
+        scale += 0.2;
+        wave.scaling = new BABYLON.Vector3(scale, scale, scale);
+        waveMat.alpha = 0.7 * (1 - scale / 1.5);
+
+        if (scale >= 1) {
+            clearInterval(expandInterval);
+            setTimeout(() => wave.dispose(), 50);
+        }
+    }, 30);
+
+    // Damage and knockback enemies
+    for (const enemy of wave.enemies) {
+        const distance = BABYLON.Vector3.Distance(playerPos, enemy.position);
+        if (distance < item.radius) {
+            damageEnemy(enemy, item.damage);
+
+            // Knockback
+            const direction = enemy.position.subtract(playerPos);
+            direction.normalize();
+            enemy.position.addInPlace(direction.scale(item.knockback));
         }
     }
 }
@@ -2383,6 +2583,9 @@ function generateUpgrades() {
     // Check existing items for level-up options
     const existingDrone = survival.items.find(item => item.type === 'drone');
     const existingOrbital = survival.items.find(item => item.type === 'orbital');
+    const existingThunderNova = survival.items.find(item => item.type === 'thunderNova');
+    const existingFlameAura = survival.items.find(item => item.type === 'flameAura');
+    const existingShockwave = survival.items.find(item => item.type === 'shockwave');
 
     // Simple upgrade pool
     const allUpgrades = [
@@ -2406,7 +2609,7 @@ function generateUpgrades() {
             player.moveSpeed *= 1.2;
         }},
 
-        // Item upgrades (new or level up)
+        // Auto-attack items
         {
             type: '아이템',
             name: existingDrone ? '드론 강화' : '🔵 드론',
@@ -2432,6 +2635,51 @@ function generateUpgrades() {
                     existingOrbital.orbitSpeed *= 1.05;
                 } else {
                     addItem('orbital');
+                }
+            }
+        },
+
+        // AoE items
+        {
+            type: '아이템',
+            name: existingThunderNova ? '썬더 노바 강화' : '⚡ 썬더 노바',
+            description: existingThunderNova ? `노바 데미지 +30% (Lv.${existingThunderNova.level + 1})` : '5초마다 주변에 번개 폭발',
+            effect: () => {
+                if (existingThunderNova) {
+                    existingThunderNova.level++;
+                    existingThunderNova.damage *= 1.3;
+                    existingThunderNova.radius *= 1.1;
+                } else {
+                    addItem('thunderNova');
+                }
+            }
+        },
+        {
+            type: '아이템',
+            name: existingFlameAura ? '플레임 오라 강화' : '🔥 플레임 오라',
+            description: existingFlameAura ? `오라 데미지 +30% (Lv.${existingFlameAura.level + 1})` : '주변에 지속 화염 피해 영역',
+            effect: () => {
+                if (existingFlameAura) {
+                    existingFlameAura.level++;
+                    existingFlameAura.damage *= 1.3;
+                    existingFlameAura.radius *= 1.1;
+                } else {
+                    addItem('flameAura');
+                }
+            }
+        },
+        {
+            type: '아이템',
+            name: existingShockwave ? '충격파 강화' : '💨 충격파',
+            description: existingShockwave ? `충격파 데미지 +30% (Lv.${existingShockwave.level + 1})` : '6초마다 적을 밀어내는 충격파',
+            effect: () => {
+                if (existingShockwave) {
+                    existingShockwave.level++;
+                    existingShockwave.damage *= 1.3;
+                    existingShockwave.radius *= 1.1;
+                    existingShockwave.knockback *= 1.15;
+                } else {
+                    addItem('shockwave');
                 }
             }
         },

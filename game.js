@@ -209,8 +209,8 @@ let survival = {
     // Auto-attack items
     items: [],
 
-    // Map
-    mapSize: 80
+    // Map (Large Megabonk-style map)
+    mapSize: 200  // 200x200 - very large open map!
 };
 
 // Item meshes storage
@@ -2750,84 +2750,137 @@ function createWeapon(type) {
 
 // Create large survival map
 function createSurvivalMap() {
-    // Remove old arena if exists
-    if (arena) arena.dispose();
+    console.log('[Map] Creating large survival map:', survival.mapSize + 'x' + survival.mapSize);
 
-    // Create large ground plane
+    // Remove old arena if exists
+    if (arena) {
+        arena.dispose();
+        console.log('[Map] Old arena disposed');
+    }
+
+    // Create VERY LARGE ground plane (200x200)
     const ground = BABYLON.MeshBuilder.CreateGround("survivalGround", {
         width: survival.mapSize,
-        height: survival.mapSize
+        height: survival.mapSize,
+        subdivisions: 32  // More subdivisions for better visuals
     }, scene);
     ground.position.y = 0;
 
+    // Ground material with grid pattern
     const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
-    groundMat.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3); // Darker for road look
+    groundMat.diffuseColor = new BABYLON.Color3(0.25, 0.28, 0.22); // Dark green-grey
     groundMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+    groundMat.specularPower = 16;
+
+    // Add procedural grid texture
+    const gridTexture = new BABYLON.DynamicTexture("survivalGridTexture", 1024, scene);
+    const ctx = gridTexture.getContext();
+
+    // Base color - dark grey-green
+    ctx.fillStyle = "#3d4438";
+    ctx.fillRect(0, 0, 1024, 1024);
+
+    // Grid lines
+    ctx.strokeStyle = "#2d3428";
+    ctx.lineWidth = 3;
+    const gridSize = 64; // Grid cell size
+
+    for (let i = 0; i <= 1024; i += gridSize) {
+        // Vertical lines
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, 1024);
+        ctx.stroke();
+
+        // Horizontal lines
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(1024, i);
+        ctx.stroke();
+    }
+
+    // Add random dirt patches
+    ctx.fillStyle = "#333830";
+    for (let i = 0; i < 50; i++) {
+        const x = Math.random() * 1024;
+        const y = Math.random() * 1024;
+        const size = 20 + Math.random() * 40;
+        ctx.globalAlpha = 0.3;
+        ctx.fillRect(x, y, size, size);
+    }
+    ctx.globalAlpha = 1.0;
+
+    gridTexture.update();
+    groundMat.diffuseTexture = gridTexture;
+    groundMat.diffuseTexture.uScale = 10;
+    groundMat.diffuseTexture.vScale = 10;
+
     ground.material = groundMat;
-    ground.checkCollisions = true;
+    ground.checkCollisions = false; // NO COLLISION - free movement!
 
     arena = ground;
 
-    // Add street tiles for visual variety
-    const tileSize = 10;
-    const tilesPerRow = Math.floor(survival.mapSize / tileSize);
-    const offset = (survival.mapSize / 2) - (tileSize / 2);
+    console.log('[Map] Ground created - Size:', survival.mapSize, 'Collisions:', ground.checkCollisions);
 
-    const streetModels = [
-        "Environment/glTF/Street_Straight.gltf",
-        "Environment/glTF/Street_Turn.gltf"
-    ];
+    // Add visual landmarks (simple boxes as buildings/obstacles)
+    const landmarkCount = 20;
+    for (let i = 0; i < landmarkCount; i++) {
+        const size = 5 + Math.random() * 10;
+        const height = 3 + Math.random() * 8;
 
-    // Add some random street tiles
-    for (let i = 0; i < 10; i++) {
-        const modelPath = streetModels[Math.floor(Math.random() * streetModels.length)];
+        const landmark = BABYLON.MeshBuilder.CreateBox("landmark_" + i, {
+            width: size,
+            height: height,
+            depth: size
+        }, scene);
+
+        // Random position within 80% of map
         const randomX = (Math.random() - 0.5) * survival.mapSize * 0.8;
         const randomZ = (Math.random() - 0.5) * survival.mapSize * 0.8;
 
-        load3DModel(modelPath, (meshes) => {
-            if (meshes && meshes.length > 0) {
-                const tile = meshes[0];
-                tile.position = new BABYLON.Vector3(randomX, 0, randomZ);
-                tile.rotation.y = Math.random() * Math.PI * 2; // Random rotation
-                tile.scaling = new BABYLON.Vector3(10, 10, 10); // Scale up
+        landmark.position = new BABYLON.Vector3(randomX, height / 2, randomZ);
+        landmark.rotation.y = Math.random() * Math.PI * 2;
 
-                // Make children follow parent
-                for (let j = 1; j < meshes.length; j++) {
-                    meshes[j].parent = tile;
-                }
-            }
-        });
+        // Random color
+        const landmarkMat = new BABYLON.StandardMaterial("landmarkMat_" + i, scene);
+        const colorVariant = Math.random();
+        if (colorVariant < 0.3) {
+            landmarkMat.diffuseColor = new BABYLON.Color3(0.5, 0.4, 0.3); // Brown
+        } else if (colorVariant < 0.6) {
+            landmarkMat.diffuseColor = new BABYLON.Color3(0.4, 0.4, 0.5); // Blue-grey
+        } else {
+            landmarkMat.diffuseColor = new BABYLON.Color3(0.6, 0.3, 0.2); // Red-brown
+        }
+        landmarkMat.emissiveColor = landmarkMat.diffuseColor.scale(0.1);
+        landmark.material = landmarkMat;
+
+        landmark.checkCollisions = false; // NO COLLISION - can walk through
+
+        console.log('[Map] Landmark', i, 'created at', randomX.toFixed(1), randomZ.toFixed(1));
     }
 
-    // Add random obstacles
-    const obstacles = [
-        "Environment/glTF/Barrel.gltf",
-        "Environment/glTF/TrafficCone_1.gltf",
-        "Environment/glTF/TrafficBarrier_1.gltf",
-        "Environment/glTF/Container_Red.gltf",
-        "Environment/glTF/Couch.gltf",
-        "Environment/glTF/TrashBag_1.gltf"
-    ];
-
+    // Add decorative cylinders (like pillars or trees)
     for (let i = 0; i < 30; i++) {
-        const modelPath = obstacles[Math.floor(Math.random() * obstacles.length)];
+        const cylinder = BABYLON.MeshBuilder.CreateCylinder("pillar_" + i, {
+            diameter: 1 + Math.random() * 2,
+            height: 4 + Math.random() * 6,
+            tessellation: 8
+        }, scene);
+
         const randomX = (Math.random() - 0.5) * survival.mapSize * 0.9;
         const randomZ = (Math.random() - 0.5) * survival.mapSize * 0.9;
 
-        load3DModel(modelPath, (meshes) => {
-            if (meshes && meshes.length > 0) {
-                const obstacle = meshes[0];
-                obstacle.position = new BABYLON.Vector3(randomX, 0, randomZ);
-                obstacle.rotation.y = Math.random() * Math.PI * 2;
-                obstacle.scaling = new BABYLON.Vector3(3, 3, 3);
+        cylinder.position = new BABYLON.Vector3(randomX, cylinder.scaling.y * 2, randomZ);
 
-                // Make children follow parent
-                for (let j = 1; j < meshes.length; j++) {
-                    meshes[j].parent = obstacle;
-                }
-            }
-        });
+        const pillarMat = new BABYLON.StandardMaterial("pillarMat_" + i, scene);
+        pillarMat.diffuseColor = new BABYLON.Color3(0.3, 0.4, 0.3); // Dark green
+        cylinder.material = pillarMat;
+
+        cylinder.checkCollisions = false; // NO COLLISION
     }
+
+    console.log('[Map] Large survival map created successfully!');
+    console.log('[Map] Playable area:', survival.mapSize + 'x' + survival.mapSize, 'units');
 }
 
 // Start survival timer

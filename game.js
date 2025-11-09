@@ -169,6 +169,10 @@ let arena;
 let weaponModel;
 let laserSight;
 
+// Survival mode weapon models
+let leftWeaponModel;
+let rightWeaponModel;
+
 // Input handling
 let keys = {};
 let isPointerLocked = false;
@@ -420,6 +424,318 @@ function updateLaserSight() {
     });
 }
 
+// ==================== Individual Weapon Models ====================
+function createPistolModel(scene, side) {
+    // side: 'left' or 'right'
+    const weaponParent = new BABYLON.TransformNode("pistolModel_" + side, scene);
+
+    // Pistol body (smaller, compact)
+    const body = BABYLON.MeshBuilder.CreateBox("pistolBody", {
+        width: 0.12,
+        height: 0.12,
+        depth: 0.4
+    }, scene);
+    const xPos = side === 'left' ? -0.25 : 0.25;
+    body.position = new BABYLON.Vector3(xPos, -0.25, 0.4);
+
+    const bodyMat = new BABYLON.StandardMaterial("pistolBodyMat", scene);
+    bodyMat.diffuseColor = new BABYLON.Color3(0.15, 0.15, 0.15);
+    bodyMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+    body.material = bodyMat;
+    body.parent = weaponParent;
+
+    // Short barrel
+    const barrel = BABYLON.MeshBuilder.CreateCylinder("pistolBarrel", {
+        diameter: 0.06,
+        height: 0.25,
+        tessellation: 16
+    }, scene);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position = new BABYLON.Vector3(xPos, -0.22, 0.55);
+
+    const barrelMat = new BABYLON.StandardMaterial("pistolBarrelMat", scene);
+    barrelMat.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+    barrelMat.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+    barrel.material = barrelMat;
+    barrel.parent = weaponParent;
+
+    // Handle (grip)
+    const handle = BABYLON.MeshBuilder.CreateBox("pistolHandle", {
+        width: 0.08,
+        height: 0.2,
+        depth: 0.12
+    }, scene);
+    handle.position = new BABYLON.Vector3(xPos, -0.4, 0.25);
+
+    const handleMat = new BABYLON.StandardMaterial("pistolHandleMat", scene);
+    handleMat.diffuseColor = new BABYLON.Color3(0.1, 0.05, 0.05);
+    handle.material = handleMat;
+    handle.parent = weaponParent;
+
+    // Magazine (smaller)
+    const magazine = BABYLON.MeshBuilder.CreateBox("pistolMag", {
+        width: 0.06,
+        height: 0.15,
+        depth: 0.08
+    }, scene);
+    magazine.position = new BABYLON.Vector3(xPos, -0.45, 0.3);
+
+    const magMat = new BABYLON.StandardMaterial("pistolMagMat", scene);
+    magMat.diffuseColor = new BABYLON.Color3(0.12, 0.12, 0.12);
+    magazine.material = magMat;
+    magazine.parent = weaponParent;
+
+    weaponParent.parent = camera;
+    return weaponParent;
+}
+
+function createRifleModel(scene, side) {
+    // side: 'left' or 'right'
+    const weaponParent = new BABYLON.TransformNode("rifleModel_" + side, scene);
+
+    // Rifle body (longer)
+    const body = BABYLON.MeshBuilder.CreateBox("rifleBody", {
+        width: 0.15,
+        height: 0.15,
+        depth: 0.8
+    }, scene);
+    const xPos = side === 'left' ? -0.25 : 0.25;
+    body.position = new BABYLON.Vector3(xPos, -0.2, 0.5);
+
+    const bodyMat = new BABYLON.StandardMaterial("rifleBodyMat", scene);
+    bodyMat.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+    bodyMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+    body.material = bodyMat;
+    body.parent = weaponParent;
+
+    // Long barrel
+    const barrel = BABYLON.MeshBuilder.CreateCylinder("rifleBarrel", {
+        diameter: 0.08,
+        height: 0.5,
+        tessellation: 16
+    }, scene);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position = new BABYLON.Vector3(xPos, -0.15, 0.75);
+
+    const barrelMat = new BABYLON.StandardMaterial("rifleBarrelMat", scene);
+    barrelMat.diffuseColor = new BABYLON.Color3(0.15, 0.15, 0.15);
+    barrelMat.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+    barrel.material = barrelMat;
+    barrel.parent = weaponParent;
+
+    // Stock (back part)
+    const stock = BABYLON.MeshBuilder.CreateBox("rifleStock", {
+        width: 0.12,
+        height: 0.1,
+        depth: 0.3
+    }, scene);
+    stock.position = new BABYLON.Vector3(xPos, -0.15, 0.1);
+
+    const stockMat = new BABYLON.StandardMaterial("rifleStockMat", scene);
+    stockMat.diffuseColor = new BABYLON.Color3(0.15, 0.1, 0.05);
+    stock.material = stockMat;
+    stock.parent = weaponParent;
+
+    // Handle
+    const handle = BABYLON.MeshBuilder.CreateBox("rifleHandle", {
+        width: 0.1,
+        height: 0.25,
+        depth: 0.15
+    }, scene);
+    handle.position = new BABYLON.Vector3(xPos, -0.35, 0.3);
+
+    const handleMat = new BABYLON.StandardMaterial("rifleHandleMat", scene);
+    handleMat.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+    handle.material = handleMat;
+    handle.parent = weaponParent;
+
+    // Magazine (long)
+    const magazine = BABYLON.MeshBuilder.CreateBox("rifleMag", {
+        width: 0.08,
+        height: 0.25,
+        depth: 0.1
+    }, scene);
+    magazine.position = new BABYLON.Vector3(xPos, -0.45, 0.35);
+
+    const magMat = new BABYLON.StandardMaterial("rifleMagMat", scene);
+    magMat.diffuseColor = new BABYLON.Color3(0.15, 0.15, 0.15);
+    magazine.material = magMat;
+    magazine.parent = weaponParent;
+
+    weaponParent.parent = camera;
+    return weaponParent;
+}
+
+function createShotgunModel(scene, side) {
+    // side: 'left' or 'right'
+    const weaponParent = new BABYLON.TransformNode("shotgunModel_" + side, scene);
+
+    // Shotgun body (thicker)
+    const body = BABYLON.MeshBuilder.CreateBox("shotgunBody", {
+        width: 0.18,
+        height: 0.18,
+        depth: 0.7
+    }, scene);
+    const xPos = side === 'left' ? -0.25 : 0.25;
+    body.position = new BABYLON.Vector3(xPos, -0.2, 0.45);
+
+    const bodyMat = new BABYLON.StandardMaterial("shotgunBodyMat", scene);
+    bodyMat.diffuseColor = new BABYLON.Color3(0.25, 0.15, 0.05);
+    bodyMat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+    body.material = bodyMat;
+    body.parent = weaponParent;
+
+    // Wide barrel
+    const barrel = BABYLON.MeshBuilder.CreateCylinder("shotgunBarrel", {
+        diameter: 0.12,
+        height: 0.4,
+        tessellation: 16
+    }, scene);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position = new BABYLON.Vector3(xPos, -0.15, 0.7);
+
+    const barrelMat = new BABYLON.StandardMaterial("shotgunBarrelMat", scene);
+    barrelMat.diffuseColor = new BABYLON.Color3(0.12, 0.12, 0.12);
+    barrelMat.specularColor = new BABYLON.Color3(0.4, 0.4, 0.4);
+    barrel.material = barrelMat;
+    barrel.parent = weaponParent;
+
+    // Pump (under barrel)
+    const pump = BABYLON.MeshBuilder.CreateBox("shotgunPump", {
+        width: 0.08,
+        height: 0.08,
+        depth: 0.25
+    }, scene);
+    pump.position = new BABYLON.Vector3(xPos, -0.28, 0.55);
+
+    const pumpMat = new BABYLON.StandardMaterial("shotgunPumpMat", scene);
+    pumpMat.diffuseColor = new BABYLON.Color3(0.2, 0.12, 0.05);
+    pump.material = pumpMat;
+    pump.parent = weaponParent;
+
+    // Stock
+    const stock = BABYLON.MeshBuilder.CreateBox("shotgunStock", {
+        width: 0.15,
+        height: 0.12,
+        depth: 0.35
+    }, scene);
+    stock.position = new BABYLON.Vector3(xPos, -0.15, 0.05);
+
+    const stockMat = new BABYLON.StandardMaterial("shotgunStockMat", scene);
+    stockMat.diffuseColor = new BABYLON.Color3(0.2, 0.12, 0.05);
+    stock.material = stockMat;
+    stock.parent = weaponParent;
+
+    // Handle
+    const handle = BABYLON.MeshBuilder.CreateBox("shotgunHandle", {
+        width: 0.1,
+        height: 0.22,
+        depth: 0.12
+    }, scene);
+    handle.position = new BABYLON.Vector3(xPos, -0.35, 0.3);
+
+    const handleMat = new BABYLON.StandardMaterial("shotgunHandleMat", scene);
+    handleMat.diffuseColor = new BABYLON.Color3(0.15, 0.1, 0.05);
+    handle.material = handleMat;
+    handle.parent = weaponParent;
+
+    weaponParent.parent = camera;
+    return weaponParent;
+}
+
+function createSMGModel(scene, side) {
+    // side: 'left' or 'right'
+    const weaponParent = new BABYLON.TransformNode("smgModel_" + side, scene);
+
+    // SMG body (compact and boxy)
+    const body = BABYLON.MeshBuilder.CreateBox("smgBody", {
+        width: 0.13,
+        height: 0.13,
+        depth: 0.5
+    }, scene);
+    const xPos = side === 'left' ? -0.25 : 0.25;
+    body.position = new BABYLON.Vector3(xPos, -0.22, 0.4);
+
+    const bodyMat = new BABYLON.StandardMaterial("smgBodyMat", scene);
+    bodyMat.diffuseColor = new BABYLON.Color3(0.18, 0.18, 0.18);
+    bodyMat.specularColor = new BABYLON.Color3(0.35, 0.35, 0.35);
+    body.material = bodyMat;
+    body.parent = weaponParent;
+
+    // Barrel (shorter than rifle)
+    const barrel = BABYLON.MeshBuilder.CreateCylinder("smgBarrel", {
+        diameter: 0.07,
+        height: 0.35,
+        tessellation: 16
+    }, scene);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position = new BABYLON.Vector3(xPos, -0.18, 0.6);
+
+    const barrelMat = new BABYLON.StandardMaterial("smgBarrelMat", scene);
+    barrelMat.diffuseColor = new BABYLON.Color3(0.13, 0.13, 0.13);
+    barrelMat.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+    barrel.material = barrelMat;
+    barrel.parent = weaponParent;
+
+    // Top rail
+    const rail = BABYLON.MeshBuilder.CreateBox("smgRail", {
+        width: 0.06,
+        height: 0.04,
+        depth: 0.4
+    }, scene);
+    rail.position = new BABYLON.Vector3(xPos, -0.12, 0.45);
+
+    const railMat = new BABYLON.StandardMaterial("smgRailMat", scene);
+    railMat.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+    rail.material = railMat;
+    rail.parent = weaponParent;
+
+    // Handle
+    const handle = BABYLON.MeshBuilder.CreateBox("smgHandle", {
+        width: 0.08,
+        height: 0.2,
+        depth: 0.12
+    }, scene);
+    handle.position = new BABYLON.Vector3(xPos, -0.38, 0.3);
+
+    const handleMat = new BABYLON.StandardMaterial("smgHandleMat", scene);
+    handleMat.diffuseColor = new BABYLON.Color3(0.08, 0.08, 0.08);
+    handle.material = handleMat;
+    handle.parent = weaponParent;
+
+    // Magazine (long, bottom-loading)
+    const magazine = BABYLON.MeshBuilder.CreateBox("smgMag", {
+        width: 0.1,
+        height: 0.3,
+        depth: 0.08
+    }, scene);
+    magazine.position = new BABYLON.Vector3(xPos, -0.5, 0.35);
+
+    const magMat = new BABYLON.StandardMaterial("smgMagMat", scene);
+    magMat.diffuseColor = new BABYLON.Color3(0.15, 0.15, 0.15);
+    magazine.material = magMat;
+    magazine.parent = weaponParent;
+
+    weaponParent.parent = camera;
+    return weaponParent;
+}
+
+// Helper to create weapon model based on type
+function createWeaponModelByType(type, side, scene) {
+    switch (type) {
+        case 'pistol':
+            return createPistolModel(scene, side);
+        case 'rifle':
+            return createRifleModel(scene, side);
+        case 'shotgun':
+            return createShotgunModel(scene, side);
+        case 'smg':
+            return createSMGModel(scene, side);
+        default:
+            return createPistolModel(scene, side);
+    }
+}
+
 // ==================== Game Logic ====================
 function startWaveDefenseMode() {
     currentState = GameState.PLAYING;
@@ -433,6 +749,19 @@ function startWaveDefenseMode() {
         // Request pointer lock for desktop
         canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
         canvas.requestPointerLock();
+    }
+
+    // Show wave defense weapon model
+    if (weaponModel) {
+        weaponModel.setEnabled(true);
+    }
+
+    // Hide survival weapon models if they exist
+    if (leftWeaponModel) {
+        leftWeaponModel.setEnabled(false);
+    }
+    if (rightWeaponModel) {
+        rightWeaponModel.setEnabled(false);
     }
 
     // Start first wave
@@ -460,6 +789,18 @@ function startSurvivalMode() {
     // Initialize dual weapons (basic starting weapons)
     survival.leftWeapon = createWeapon('pistol');
     survival.rightWeapon = createWeapon('rifle');
+
+    // Hide wave defense weapon model
+    if (weaponModel) {
+        weaponModel.setEnabled(false);
+    }
+
+    // Create dual weapon models for survival mode
+    leftWeaponModel = createWeaponModelByType(survival.leftWeapon.type, 'left', scene);
+    rightWeaponModel = createWeaponModelByType(survival.rightWeapon.type, 'right', scene);
+
+    // Update weapon UI
+    updateSurvivalWeaponUI();
 
     // Create large map
     createSurvivalMap();
@@ -1451,21 +1792,21 @@ function createWeapon(type) {
     const weapons = {
         pistol: {
             name: '권총',
-            damage: 15,
-            fireRate: 8,
-            maxAmmo: 15,
-            currentAmmo: 15,
-            reloadTime: 1000,
-            spread: 0.02
+            damage: 20,  // 중간 데미지
+            fireRate: 5,  // 낮은 연사
+            maxAmmo: 12,
+            currentAmmo: 12,
+            reloadTime: 1200,
+            spread: 0.01
         },
         rifle: {
             name: '라이플',
-            damage: 25,
-            fireRate: 6,
+            damage: 15,  // 낮은 데미지
+            fireRate: 10, // 빠른 연사
             maxAmmo: 30,
             currentAmmo: 30,
             reloadTime: 2000,
-            spread: 0.01
+            spread: 0.02
         },
         shotgun: {
             name: '샷건',

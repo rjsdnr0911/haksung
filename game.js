@@ -287,7 +287,7 @@ function createScene() {
     scene.collisionsEnabled = true;
 
     // Camera (FPS style)
-    camera = new BABYLON.UniversalCamera("camera", new BABYLON.Vector3(0, 1.6, 0), scene);
+    camera = new BABYLON.UniversalCamera("camera", new BABYLON.Vector3(0, 1.8, 0), scene);
     camera.attachControl(canvas, false);
     camera.speed = 0; // We'll handle movement manually
     camera.angularSensibility = 2000 / mouseSensitivity; // Higher value = lower sensitivity
@@ -295,12 +295,28 @@ function createScene() {
     camera.checkCollisions = true;
     camera.applyGravity = false;
 
-    // Lighting
+    // Lighting - improved for better visibility
     const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
-    light.intensity = 0.7;
+    light.intensity = 0.8;
+    light.groundColor = new BABYLON.Color3(0.2, 0.2, 0.3);
 
     const dirLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-1, -2, -1), scene);
-    dirLight.intensity = 0.5;
+    dirLight.intensity = 0.6;
+
+    // Add spotlights around the arena for better atmosphere
+    const spotlight1 = new BABYLON.SpotLight("spotlight1",
+        new BABYLON.Vector3(10, 5, 10),
+        new BABYLON.Vector3(-1, -1, -1),
+        Math.PI / 3, 2, scene);
+    spotlight1.intensity = 0.4;
+    spotlight1.diffuse = new BABYLON.Color3(0.8, 0.8, 1);
+
+    const spotlight2 = new BABYLON.SpotLight("spotlight2",
+        new BABYLON.Vector3(-10, 5, -10),
+        new BABYLON.Vector3(1, -1, 1),
+        Math.PI / 3, 2, scene);
+    spotlight2.intensity = 0.4;
+    spotlight2.diffuse = new BABYLON.Color3(0.8, 0.8, 1);
 
     // Create arena (circular platform)
     arena = BABYLON.MeshBuilder.CreateCylinder("arena", {
@@ -311,8 +327,32 @@ function createScene() {
     arena.position.y = -0.5;
 
     const arenaMaterial = new BABYLON.StandardMaterial("arenaMat", scene);
-    arenaMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.35);
-    arenaMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+    arenaMaterial.diffuseColor = new BABYLON.Color3(0.25, 0.25, 0.3);
+    arenaMaterial.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+    arenaMaterial.specularPower = 32;
+
+    // Add grid pattern texture
+    const gridTexture = new BABYLON.DynamicTexture("gridTexture", 512, scene);
+    const ctx = gridTexture.getContext();
+    ctx.fillStyle = "#3a3a45";
+    ctx.fillRect(0, 0, 512, 512);
+    ctx.strokeStyle = "#2a2a35";
+    ctx.lineWidth = 2;
+    for (let i = 0; i <= 512; i += 64) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, 512);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(512, i);
+        ctx.stroke();
+    }
+    gridTexture.update();
+    arenaMaterial.diffuseTexture = gridTexture;
+    arenaMaterial.diffuseTexture.uScale = 4;
+    arenaMaterial.diffuseTexture.vScale = 4;
+
     arena.material = arenaMaterial;
     arena.checkCollisions = true;
 
@@ -1098,7 +1138,34 @@ function createEnemyByType(type, x, z, timeMultiplier = 1) {
         enemy.lastAttackTime = 0;
         enemy.attackCooldown = 1000;
 
-        // Add to enemies array
+        // Create hitbox for better collision detection
+        let hitboxSize;
+        if (type === 'runner') {
+            hitboxSize = { width: 1.5, height: 0.8, depth: 1.5 }; // Low and wide for crawling
+        } else if (type === 'tank') {
+            hitboxSize = { width: 1.8, height: 2, depth: 1.8 }; // Large hitbox
+        } else if (type === 'boss') {
+            hitboxSize = { width: 3, height: 4, depth: 3 }; // Very large hitbox
+        } else {
+            hitboxSize = { width: 1.2, height: 1.8, depth: 1.2 }; // Normal size
+        }
+
+        const hitbox = BABYLON.MeshBuilder.CreateBox("hitbox", hitboxSize, scene);
+        hitbox.parent = enemy;
+        hitbox.position = new BABYLON.Vector3(0, hitboxSize.height / 2, 0);
+        hitbox.isVisible = false; // Invisible hitbox
+        hitbox.isPickable = true;
+
+        // Store reference to hitbox
+        enemy.hitbox = hitbox;
+
+        // Make hitbox the main pickable mesh instead of the model
+        enemy.isPickable = false;
+        for (let i = 1; i < meshes?.length || 0; i++) {
+            if (meshes[i]) meshes[i].isPickable = false;
+        }
+
+        // Add enemy to enemies array (hitbox will follow as child)
         wave.enemies.push(enemy);
 
         // Show boss health bar in Wave Defense mode
@@ -1180,11 +1247,30 @@ function handlePlayerMovement(deltaTime) {
         movement.normalize();
         const newPos = camera.position.add(movement.scale(player.moveSpeed * deltaTime));
 
-        // Keep player within arena bounds
+        // Keep player within arena bounds - stronger enforcement
         const distFromCenter = Math.sqrt(newPos.x * newPos.x + newPos.z * newPos.z);
-        if (distFromCenter < ARENA_RADIUS - 1) {
+        const maxDistance = ARENA_RADIUS - 1.5; // Increased margin
+
+        if (distFromCenter < maxDistance) {
             camera.position = newPos;
+        } else {
+            // If trying to go past boundary, allow tangential movement only
+            const direction = new BABYLON.Vector3(newPos.x, 0, newPos.z).normalize();
+            const currentDist = Math.sqrt(camera.position.x * camera.position.x + camera.position.z * camera.position.z);
+
+            // Only update if we're not pushing further out
+            if (distFromCenter <= currentDist) {
+                camera.position = newPos;
+            } else {
+                // Clamp to boundary
+                const clampedPos = direction.scale(maxDistance - 0.1);
+                camera.position.x = clampedPos.x;
+                camera.position.z = clampedPos.z;
+            }
         }
+
+        // Ensure Y position stays constant
+        camera.position.y = 1.8;
     }
 }
 
@@ -1203,6 +1289,10 @@ function updateEnemies(deltaTime) {
         const direction = camera.position.subtract(enemy.position);
         const distance = direction.length();
         direction.normalize();
+
+        // Rotate enemy to face player
+        const angle = Math.atan2(direction.x, direction.z);
+        enemy.rotation = new BABYLON.Vector3(0, angle, 0);
 
         // Shooter behavior - ranged attack
         if (enemy.enemyType === 'shooter') {
@@ -1238,7 +1328,7 @@ function updateEnemies(deltaTime) {
 
         // Keep enemy on platform (adjust Y based on type)
         if (enemy.enemyType === 'runner') {
-            enemy.position.y = 0.5;
+            enemy.position.y = 0.2; // Lower for crawling zombie
         } else if (enemy.enemyType === 'tank') {
             enemy.position.y = 1;
         } else if (enemy.enemyType === 'boss') {
@@ -1358,25 +1448,35 @@ function shoot() {
     // Pierce rounds - hit multiple enemies
     if (player.weapon.hasPierce) {
         const hits = scene.multiPickWithRay(ray, (mesh) => {
-            return wave.enemies.includes(mesh);
+            // Check if mesh is an enemy or an enemy's hitbox
+            return wave.enemies.includes(mesh) ||
+                   (mesh.parent && wave.enemies.includes(mesh.parent));
         });
 
         let hitCount = 0;
         for (const hit of hits) {
             if (hitCount >= player.weapon.pierceCount) break;
             if (hit.pickedMesh) {
-                applyWeaponEffects(hit.pickedMesh, damage, isCrit);
+                // Get the actual enemy (either the mesh itself or its parent)
+                const enemy = wave.enemies.includes(hit.pickedMesh) ?
+                              hit.pickedMesh : hit.pickedMesh.parent;
+                applyWeaponEffects(enemy, damage, isCrit);
                 hitCount++;
             }
         }
     } else {
         // Normal single-target shot
         const hit = scene.pickWithRay(ray, (mesh) => {
-            return wave.enemies.includes(mesh);
+            // Check if mesh is an enemy or an enemy's hitbox
+            return wave.enemies.includes(mesh) ||
+                   (mesh.parent && wave.enemies.includes(mesh.parent));
         });
 
         if (hit.pickedMesh) {
-            applyWeaponEffects(hit.pickedMesh, damage, isCrit);
+            // Get the actual enemy (either the mesh itself or its parent)
+            const enemy = wave.enemies.includes(hit.pickedMesh) ?
+                          hit.pickedMesh : hit.pickedMesh.parent;
+            applyWeaponEffects(enemy, damage, isCrit);
         }
     }
 }

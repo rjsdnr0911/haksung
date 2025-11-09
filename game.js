@@ -1404,7 +1404,15 @@ function killEnemy(enemy) {
         }
     }
 
-    enemy.dispose();
+    // Properly dispose of enemy mesh and materials
+    try {
+        if (enemy.material) {
+            enemy.material.dispose();
+        }
+        enemy.dispose();
+    } catch (e) {
+        console.error("Error disposing enemy:", e);
+    }
 }
 
 // ==================== Damage Number System ====================
@@ -1632,7 +1640,12 @@ function applyBurnEffect(enemy) {
 function updateBurnEffects(deltaTime) {
     const now = Date.now();
 
-    for (const enemy of wave.enemies) {
+    // Iterate backwards to safely remove enemies
+    for (let i = wave.enemies.length - 1; i >= 0; i--) {
+        const enemy = wave.enemies[i];
+
+        if (!enemy || enemy.isDisposed() || enemy.isDead) continue;
+
         if (enemy.isBurning) {
             enemy.burnDuration -= deltaTime;
 
@@ -1641,7 +1654,7 @@ function updateBurnEffects(deltaTime) {
                 enemy.burnLastTick = now;
 
                 // Visual effect
-                if (!enemy.isDisposed()) {
+                if (!enemy.isDisposed() && !enemy.isDead) {
                     enemy.material.emissiveColor = new BABYLON.Color3(1, 0.3, 0);
                 }
             }
@@ -1668,7 +1681,12 @@ function applyFreezeEffect(enemy) {
 }
 
 function updateFreezeEffects(deltaTime) {
-    for (const enemy of wave.enemies) {
+    // Iterate backwards to safely remove enemies
+    for (let i = wave.enemies.length - 1; i >= 0; i--) {
+        const enemy = wave.enemies[i];
+
+        if (!enemy || enemy.isDisposed() || enemy.isDead) continue;
+
         if (enemy.isFrozen) {
             enemy.freezeDuration -= deltaTime;
 
@@ -2523,14 +2541,18 @@ function updateOrbital(item, deltaTime) {
         camera.position.z + z
     );
 
-    if (item.mesh) {
+    if (item.mesh && !item.mesh.isDisposed()) {
         item.mesh.position = orbitalPos;
     }
 
-    // Check collision with enemies
+    // Check collision with enemies (backwards iteration)
     const now = Date.now();
     if (now - item.lastHitTime > item.hitCooldown * 1000) {
-        for (const enemy of wave.enemies) {
+        for (let i = wave.enemies.length - 1; i >= 0; i--) {
+            const enemy = wave.enemies[i];
+
+            if (!enemy || enemy.isDisposed() || enemy.isDead) continue;
+
             const distance = BABYLON.Vector3.Distance(orbitalPos, enemy.position);
             if (distance < 1.5) {
                 damageEnemy(enemy, item.damage);
@@ -2579,8 +2601,12 @@ function triggerThunderNova(item) {
         }
     }, 30);
 
-    // Damage all enemies in radius
-    for (const enemy of wave.enemies) {
+    // Damage all enemies in radius (backwards iteration)
+    for (let i = wave.enemies.length - 1; i >= 0; i--) {
+        const enemy = wave.enemies[i];
+
+        if (!enemy || enemy.isDisposed() || enemy.isDead) continue;
+
         const distance = BABYLON.Vector3.Distance(playerPos, enemy.position);
         if (distance < item.radius) {
             damageEnemy(enemy, item.damage);
@@ -2605,7 +2631,7 @@ function updateFlameAura(item, deltaTime) {
     const playerPos = camera.position;
 
     // Update mesh position
-    if (item.mesh) {
+    if (item.mesh && !item.mesh.isDisposed()) {
         item.mesh.position = new BABYLON.Vector3(playerPos.x, 0.3, playerPos.z);
 
         // Rotate for visual effect
@@ -2616,11 +2642,15 @@ function updateFlameAura(item, deltaTime) {
     if (!item.tickTimer) item.tickTimer = 0;
     item.tickTimer += deltaTime;
 
-    // Damage enemies in radius every tick
+    // Damage enemies in radius every tick (backwards iteration)
     if (item.tickTimer >= item.tickRate) {
         item.tickTimer = 0;
 
-        for (const enemy of wave.enemies) {
+        for (let i = wave.enemies.length - 1; i >= 0; i--) {
+            const enemy = wave.enemies[i];
+
+            if (!enemy || enemy.isDisposed() || enemy.isDead) continue;
+
             const distance = BABYLON.Vector3.Distance(playerPos, enemy.position);
             if (distance < item.radius) {
                 damageEnemy(enemy, item.damage * item.tickRate);
@@ -2670,8 +2700,12 @@ function triggerShockwave(item) {
         }
     }, 30);
 
-    // Damage and knockback enemies
-    for (const enemy of wave.enemies) {
+    // Damage and knockback enemies (backwards iteration)
+    for (let i = wave.enemies.length - 1; i >= 0; i--) {
+        const enemy = wave.enemies[i];
+
+        if (!enemy || enemy.isDisposed() || enemy.isDead) continue;
+
         const distance = BABYLON.Vector3.Distance(playerPos, enemy.position);
         if (distance < item.radius) {
             damageEnemy(enemy, item.damage);
@@ -2689,7 +2723,11 @@ function findNearestEnemy(position, maxRange) {
     let nearest = null;
     let nearestDist = maxRange;
 
-    for (const enemy of wave.enemies) {
+    for (let i = wave.enemies.length - 1; i >= 0; i--) {
+        const enemy = wave.enemies[i];
+
+        if (!enemy || enemy.isDisposed() || enemy.isDead) continue;
+
         const dist = BABYLON.Vector3.Distance(position, enemy.position);
         if (dist < nearestDist) {
             nearestDist = dist;
@@ -2746,9 +2784,13 @@ function updateDroneBullets(deltaTime) {
         bullet.position.addInPlace(bullet.velocity.scale(deltaTime));
         bullet.lifetime += deltaTime;
 
-        // Check collision with enemies
+        // Check collision with enemies (backwards iteration)
         let hit = false;
-        for (const enemy of wave.enemies) {
+        for (let j = wave.enemies.length - 1; j >= 0; j--) {
+            const enemy = wave.enemies[j];
+
+            if (!enemy || enemy.isDisposed() || enemy.isDead) continue;
+
             const dist = BABYLON.Vector3.Distance(bullet.position, enemy.position);
             if (dist < 1) {
                 damageEnemy(enemy, bullet.damage);
@@ -2759,7 +2801,11 @@ function updateDroneBullets(deltaTime) {
 
         // Remove bullet if hit or expired
         if (hit || bullet.lifetime > bullet.maxLifetime) {
-            bullet.dispose();
+            try {
+                bullet.dispose();
+            } catch (e) {
+                console.error("Error disposing drone bullet:", e);
+            }
             scene.droneBullets.splice(i, 1);
         }
     }

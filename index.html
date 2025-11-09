@@ -343,6 +343,17 @@
         #reloadButton:active {
             background: rgba(255, 170, 0, 0.6);
         }
+        #shootRightButton {
+            bottom: 30px;
+            right: 150px;
+            width: 90px;
+            height: 90px;
+            background: rgba(68, 136, 255, 0.4);
+            border-color: rgba(68, 136, 255, 0.8);
+        }
+        #shootRightButton:active {
+            background: rgba(68, 136, 255, 0.6);
+        }
 
         /* Mobile adjustments */
         @media (max-width: 768px) {
@@ -492,8 +503,9 @@
                 <div id="joystickBase"></div>
                 <div id="joystickStick"></div>
             </div>
-            <div id="shootButton" class="mobile-button">🔫</div>
-            <div id="reloadButton" class="mobile-button">R</div>
+            <div id="shootButton" class="mobile-button">L</div>
+            <div id="shootRightButton" class="mobile-button">R</div>
+            <div id="reloadButton" class="mobile-button">⟳</div>
         </div>
 
         <!-- Perk Selection Screen -->

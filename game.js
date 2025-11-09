@@ -183,6 +183,7 @@ let joystickActive = false;
 let joystickVector = { x: 0, y: 0 };
 let touchLookStart = null;
 let isShooting = false;
+let isShootingRight = false;
 
 // ==================== Survival Mode Variables ====================
 let survival = {
@@ -745,6 +746,10 @@ function startWaveDefenseMode() {
     // Show mobile controls if on mobile
     if (isMobile) {
         document.getElementById('mobileControls').classList.add('active');
+        // Show/hide appropriate buttons for wave defense mode
+        document.getElementById('shootButton').style.display = 'flex';
+        document.getElementById('shootRightButton').style.display = 'none';
+        document.getElementById('reloadButton').style.display = 'flex';
     } else {
         // Request pointer lock for desktop
         canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
@@ -773,8 +778,15 @@ function startSurvivalMode() {
     document.getElementById('startScreen').classList.add('hidden');
     document.getElementById('survivalHud').classList.remove('hidden');
 
-    // Request pointer lock
-    if (!isMobile) {
+    // Show mobile controls if on mobile
+    if (isMobile) {
+        document.getElementById('mobileControls').classList.add('active');
+        // Show/hide appropriate buttons for survival mode
+        document.getElementById('shootButton').style.display = 'flex';
+        document.getElementById('shootRightButton').style.display = 'flex';
+        document.getElementById('reloadButton').style.display = 'none';
+    } else {
+        // Request pointer lock for desktop
         canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
         canvas.requestPointerLock();
     }
@@ -1686,11 +1698,11 @@ function setupMobileControls() {
         }
     });
 
-    // Shoot button
+    // Shoot button (Left weapon in survival, single weapon in wave defense)
     shootButton.addEventListener('touchstart', (e) => {
         e.preventDefault();
         isShooting = true;
-        startAutoShoot();
+        startAutoShoot('left');
     });
 
     shootButton.addEventListener('touchend', (e) => {
@@ -1698,10 +1710,26 @@ function setupMobileControls() {
         isShooting = false;
     });
 
-    // Reload button
+    // Right weapon button (Survival mode only)
+    const shootRightButton = document.getElementById('shootRightButton');
+
+    shootRightButton.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        isShootingRight = true;
+        startAutoShoot('right');
+    });
+
+    shootRightButton.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        isShootingRight = false;
+    });
+
+    // Reload button (Wave defense mode only)
     reloadButton.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        reload();
+        if (currentMode === GameMode.WAVE_DEFENSE) {
+            reload();
+        }
     });
 
     // Touch camera rotation (right side of screen)
@@ -1773,15 +1801,30 @@ function updateJoystick(touchX, touchY, center, radius) {
     joystickVector.y = -y / radius; // Invert Y for forward/backward
 }
 
-function startAutoShoot() {
-    if (!isShooting || currentState !== GameState.PLAYING) return;
+function startAutoShoot(side = 'left') {
+    // Check which button is being held
+    const isActive = (side === 'left') ? isShooting : isShootingRight;
 
-    shoot();
+    if (!isActive || currentState !== GameState.PLAYING) return;
+
+    // Shoot based on game mode
+    if (currentMode === GameMode.SURVIVAL) {
+        if (side === 'left') {
+            shootWeapon(survival.leftWeapon, true);
+        } else {
+            shootWeapon(survival.rightWeapon, false);
+        }
+    } else {
+        // Wave defense mode
+        shoot();
+    }
 
     // Continue shooting while button is held
     setTimeout(() => {
-        if (isShooting) {
-            startAutoShoot();
+        if (side === 'left' && isShooting) {
+            startAutoShoot('left');
+        } else if (side === 'right' && isShootingRight) {
+            startAutoShoot('right');
         }
     }, 100);
 }

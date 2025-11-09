@@ -1359,18 +1359,16 @@ function handleTopDownMovement(deltaTime) {
         movement.normalize();
         const newPos = playerMesh.position.add(movement.scale(player.moveSpeed * deltaTime));
 
-        // Keep player within arena bounds
-        const distFromCenter = Math.sqrt(newPos.x * newPos.x + newPos.z * newPos.z);
-        const maxDistance = ARENA_RADIUS - 1.5;
+        // Keep player within bounds (use survival map size, not arena radius)
+        const halfSize = survival.mapSize / 2 - 2; // 38 for 80x80 map
 
-        if (distFromCenter < maxDistance) {
+        // Clamp to rectangular bounds
+        if (Math.abs(newPos.x) < halfSize && Math.abs(newPos.z) < halfSize) {
             playerMesh.position = newPos;
         } else {
             // Clamp to boundary
-            const direction = new BABYLON.Vector3(newPos.x, 0, newPos.z).normalize();
-            const clampedPos = direction.scale(maxDistance - 0.1);
-            playerMesh.position.x = clampedPos.x;
-            playerMesh.position.z = clampedPos.z;
+            playerMesh.position.x = Math.max(-halfSize, Math.min(halfSize, newPos.x));
+            playerMesh.position.z = Math.max(-halfSize, Math.min(halfSize, newPos.z));
         }
 
         // Keep Y constant

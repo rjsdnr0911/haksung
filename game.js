@@ -208,6 +208,9 @@ let survival = {
     mapSize: 80
 };
 
+// Item meshes storage
+let itemMeshes = [];
+
 // ==================== Initialization ====================
 window.addEventListener('DOMContentLoaded', function() {
     canvas = document.getElementById('renderCanvas');
@@ -800,6 +803,13 @@ function startSurvivalMode() {
     survival.xpToNextLevel = 10;
     survival.killCount = 0;
     survival.timeElapsed = 0;
+    survival.items = [];
+
+    // Clean up old item meshes
+    for (const mesh of itemMeshes) {
+        if (mesh) mesh.dispose();
+    }
+    itemMeshes = [];
 
     // Initialize dual weapons (basic starting weapons)
     survival.leftWeapon = createWeapon('pistol');
@@ -1347,8 +1357,14 @@ function killEnemy(enemy) {
         wave.enemies.splice(index, 1);
     }
 
-    wave.enemiesAlive--;
-    updateWaveUI();
+    // Update based on game mode
+    if (currentMode === GameMode.WAVE_DEFENSE) {
+        wave.enemiesAlive--;
+        updateWaveUI();
+    } else if (currentMode === GameMode.SURVIVAL) {
+        survival.killCount++;
+        addXP(5); // Add XP in survival mode
+    }
 
     enemy.dispose();
 }
@@ -1945,6 +1961,9 @@ function updateSurvivalMode(deltaTime) {
     // Update auto-attack items
     updateSurvivalItems(deltaTime);
 
+    // Update drone bullets
+    updateDroneBullets(deltaTime);
+
     // Keep player within bounds
     const halfSize = survival.mapSize / 2 - 2;
     if (Math.abs(camera.position.x) > halfSize) {
@@ -2016,7 +2035,242 @@ function spawnSurvivalEnemies(deltaTime) {
 }
 
 function updateSurvivalItems(deltaTime) {
-    // Update auto-attack items (will implement later)
+    for (const item of survival.items) {
+        if (item.type === 'drone') {
+            updateDrone(item, deltaTime);
+        } else if (item.type === 'orbital') {
+            updateOrbital(item, deltaTime);
+        }
+    }
+}
+
+// ==================== Auto-Attack Items ====================
+
+// Add item to player
+function addItem(itemType) {
+    const item = createItem(itemType);
+    survival.items.push(item);
+
+    // Create visual mesh for item
+    if (item.type === 'drone') {
+        createDroneMesh(item);
+    } else if (item.type === 'orbital') {
+        createOrbitalMesh(item);
+    }
+}
+
+// Create item data
+function createItem(type) {
+    const items = {
+        drone: {
+            type: 'drone',
+            name: '드론',
+            level: 1,
+            damage: 30,
+            fireRate: 2, // shots per second
+            range: 15,
+            orbitRadius: 3,
+            orbitSpeed: 1,
+            angle: Math.random() * Math.PI * 2,
+            lastShotTime: 0
+        },
+        orbital: {
+            type: 'orbital',
+            name: '오비탈',
+            level: 1,
+            damage: 10,
+            orbitRadius: 2.5,
+            orbitSpeed: 3,
+            angle: Math.random() * Math.PI * 2,
+            lastHitTime: 0,
+            hitCooldown: 0.5 // hits per second
+        }
+    };
+
+    return { ...items[type] };
+}
+
+// Create drone visual mesh
+function createDroneMesh(item) {
+    const drone = BABYLON.MeshBuilder.CreateSphere("drone", {
+        diameter: 0.5,
+        segments: 8
+    }, scene);
+
+    const droneMat = new BABYLON.StandardMaterial("droneMat", scene);
+    droneMat.emissiveColor = new BABYLON.Color3(0.3, 0.7, 1);
+    droneMat.diffuseColor = new BABYLON.Color3(0.2, 0.5, 0.8);
+    drone.material = droneMat;
+
+    item.mesh = drone;
+    itemMeshes.push(drone);
+}
+
+// Create orbital visual mesh
+function createOrbitalMesh(item) {
+    const orbital = BABYLON.MeshBuilder.CreateSphere("orbital", {
+        diameter: 0.4,
+        segments: 8
+    }, scene);
+
+    const orbitalMat = new BABYLON.StandardMaterial("orbitalMat", scene);
+    orbitalMat.emissiveColor = new BABYLON.Color3(1, 0.5, 0);
+    orbitalMat.diffuseColor = new BABYLON.Color3(1, 0.3, 0);
+    orbital.material = orbitalMat;
+
+    // Add trail effect
+    const trail = BABYLON.MeshBuilder.CreateSphere("orbitalTrail", {
+        diameter: 0.6,
+        segments: 8
+    }, scene);
+    const trailMat = new BABYLON.StandardMaterial("orbitalTrailMat", scene);
+    trailMat.emissiveColor = new BABYLON.Color3(1, 0.3, 0);
+    trailMat.alpha = 0.3;
+    trail.material = trailMat;
+    trail.parent = orbital;
+
+    item.mesh = orbital;
+    itemMeshes.push(orbital);
+}
+
+// Update drone behavior
+function updateDrone(item, deltaTime) {
+    // Orbit around player
+    item.angle += item.orbitSpeed * deltaTime;
+    const x = Math.cos(item.angle) * item.orbitRadius;
+    const z = Math.sin(item.angle) * item.orbitRadius;
+
+    const dronePos = new BABYLON.Vector3(
+        camera.position.x + x,
+        camera.position.y,
+        camera.position.z + z
+    );
+
+    if (item.mesh) {
+        item.mesh.position = dronePos;
+    }
+
+    // Auto-shoot at nearest enemy
+    const now = Date.now();
+    if (now - item.lastShotTime > 1000 / item.fireRate) {
+        const nearestEnemy = findNearestEnemy(dronePos, item.range);
+        if (nearestEnemy) {
+            shootFromDrone(dronePos, nearestEnemy, item.damage);
+            item.lastShotTime = now;
+        }
+    }
+}
+
+// Update orbital behavior
+function updateOrbital(item, deltaTime) {
+    // Orbit around player faster
+    item.angle += item.orbitSpeed * deltaTime;
+    const x = Math.cos(item.angle) * item.orbitRadius;
+    const z = Math.sin(item.angle) * item.orbitRadius;
+
+    const orbitalPos = new BABYLON.Vector3(
+        camera.position.x + x,
+        camera.position.y,
+        camera.position.z + z
+    );
+
+    if (item.mesh) {
+        item.mesh.position = orbitalPos;
+    }
+
+    // Check collision with enemies
+    const now = Date.now();
+    if (now - item.lastHitTime > item.hitCooldown * 1000) {
+        for (const enemy of wave.enemies) {
+            const distance = BABYLON.Vector3.Distance(orbitalPos, enemy.position);
+            if (distance < 1.5) {
+                damageEnemy(enemy, item.damage);
+                item.lastHitTime = now;
+                break; // Only hit one enemy at a time
+            }
+        }
+    }
+}
+
+// Find nearest enemy to a position
+function findNearestEnemy(position, maxRange) {
+    let nearest = null;
+    let nearestDist = maxRange;
+
+    for (const enemy of wave.enemies) {
+        const dist = BABYLON.Vector3.Distance(position, enemy.position);
+        if (dist < nearestDist) {
+            nearestDist = dist;
+            nearest = enemy;
+        }
+    }
+
+    return nearest;
+}
+
+// Shoot projectile from drone
+function shootFromDrone(origin, target, damage) {
+    const direction = target.position.subtract(origin);
+    direction.normalize();
+
+    // Visual bullet
+    const bullet = BABYLON.MeshBuilder.CreateSphere("droneBullet", {
+        diameter: 0.2
+    }, scene);
+    bullet.position = origin.clone();
+
+    const bulletMat = new BABYLON.StandardMaterial("droneBulletMat", scene);
+    bulletMat.emissiveColor = new BABYLON.Color3(0, 1, 1);
+    bullet.material = bulletMat;
+
+    // Bullet data
+    bullet.velocity = direction.scale(20);
+    bullet.damage = damage;
+    bullet.lifetime = 0;
+    bullet.maxLifetime = 2;
+    bullet.isDroneBullet = true;
+
+    // Add to tracking array
+    if (!scene.droneBullets) scene.droneBullets = [];
+    scene.droneBullets.push(bullet);
+
+    // Create bullet trace
+    createBulletTrace(origin, direction, new BABYLON.Color3(0, 1, 1));
+}
+
+// Update drone bullets
+function updateDroneBullets(deltaTime) {
+    if (!scene.droneBullets) return;
+
+    for (let i = scene.droneBullets.length - 1; i >= 0; i--) {
+        const bullet = scene.droneBullets[i];
+
+        if (!bullet || bullet.isDisposed()) {
+            scene.droneBullets.splice(i, 1);
+            continue;
+        }
+
+        // Move bullet
+        bullet.position.addInPlace(bullet.velocity.scale(deltaTime));
+        bullet.lifetime += deltaTime;
+
+        // Check collision with enemies
+        let hit = false;
+        for (const enemy of wave.enemies) {
+            const dist = BABYLON.Vector3.Distance(bullet.position, enemy.position);
+            if (dist < 1) {
+                damageEnemy(enemy, bullet.damage);
+                hit = true;
+                break;
+            }
+        }
+
+        // Remove bullet if hit or expired
+        if (hit || bullet.lifetime > bullet.maxLifetime) {
+            bullet.dispose();
+            scene.droneBullets.splice(i, 1);
+        }
+    }
 }
 
 // Shoot with left or right weapon
@@ -2070,11 +2324,6 @@ function fireBullet(origin, direction, damage) {
 
     if (hit.pickedMesh) {
         damageEnemy(hit.pickedMesh, damage);
-
-        // Add XP on kill
-        if (hit.pickedMesh.health <= 0) {
-            addXP(5);
-        }
     }
 }
 
@@ -2131,8 +2380,13 @@ function showLevelUpScreen() {
 }
 
 function generateUpgrades() {
+    // Check existing items for level-up options
+    const existingDrone = survival.items.find(item => item.type === 'drone');
+    const existingOrbital = survival.items.find(item => item.type === 'orbital');
+
     // Simple upgrade pool
     const allUpgrades = [
+        // Weapon upgrades
         { type: '무기', name: '데미지 증가', description: '모든 무기 데미지 +20%', effect: () => {
             if (survival.leftWeapon) survival.leftWeapon.damage *= 1.2;
             if (survival.rightWeapon) survival.rightWeapon.damage *= 1.2;
@@ -2141,6 +2395,8 @@ function generateUpgrades() {
             if (survival.leftWeapon) survival.leftWeapon.fireRate *= 1.2;
             if (survival.rightWeapon) survival.rightWeapon.fireRate *= 1.2;
         }},
+
+        // Survival upgrades
         { type: '생존', name: '체력 증가', description: '최대 HP +50', effect: () => {
             player.maxHealth += 50;
             player.health += 50;
@@ -2149,6 +2405,36 @@ function generateUpgrades() {
         { type: '생존', name: '이동 속도', description: '이동 속도 +20%', effect: () => {
             player.moveSpeed *= 1.2;
         }},
+
+        // Item upgrades (new or level up)
+        {
+            type: '아이템',
+            name: existingDrone ? '드론 강화' : '🔵 드론',
+            description: existingDrone ? `드론 데미지 +30% (Lv.${existingDrone.level + 1})` : '주변을 돌며 자동 공격하는 드론 획득',
+            effect: () => {
+                if (existingDrone) {
+                    existingDrone.level++;
+                    existingDrone.damage *= 1.3;
+                    existingDrone.fireRate *= 1.1;
+                } else {
+                    addItem('drone');
+                }
+            }
+        },
+        {
+            type: '아이템',
+            name: existingOrbital ? '오비탈 강화' : '🟠 오비탈',
+            description: existingOrbital ? `오비탈 데미지 +30% (Lv.${existingOrbital.level + 1})` : '플레이어 주위를 돌며 접촉 피해를 주는 오비탈 획득',
+            effect: () => {
+                if (existingOrbital) {
+                    existingOrbital.level++;
+                    existingOrbital.damage *= 1.3;
+                    existingOrbital.orbitSpeed *= 1.05;
+                } else {
+                    addItem('orbital');
+                }
+            }
+        },
     ];
 
     // Pick 3 random

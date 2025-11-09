@@ -1263,8 +1263,9 @@ function createEnemyByType(type, x, z, timeMultiplier = 1) {
         hitbox.isVisible = false; // Invisible hitbox
         hitbox.isPickable = true;
 
-        // Store reference to hitbox
+        // Store bidirectional reference
         enemy.hitbox = hitbox;
+        hitbox.enemyRef = enemy; // So we can find the enemy when hitbox is hit
 
         // Make hitbox the main pickable mesh instead of the model
         enemy.isPickable = false;
@@ -3628,11 +3629,14 @@ function shootWeapon(weapon, isLeft) {
 function fireBullet(origin, direction, damage) {
     const ray = new BABYLON.Ray(origin, direction, 100);
     const hit = scene.pickWithRay(ray, (mesh) => {
-        return wave.enemies.includes(mesh);
+        // Check if mesh is an enemy OR a hitbox with enemyRef
+        return wave.enemies.includes(mesh) || (mesh.enemyRef && wave.enemies.includes(mesh.enemyRef));
     });
 
     if (hit.pickedMesh) {
-        damageEnemy(hit.pickedMesh, damage);
+        // If we hit a hitbox, damage the enemy it references
+        const targetEnemy = hit.pickedMesh.enemyRef || hit.pickedMesh;
+        damageEnemy(targetEnemy, damage);
     }
 }
 

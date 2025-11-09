@@ -857,43 +857,111 @@ function startSurvivalMode() {
 
 function startWave(waveNumber) {
     wave.current = waveNumber;
-    wave.enemiesTotal = 5 + (waveNumber - 1) * 3;
+
+    // Determine wave type
+    let waveType = 'normal';
+    let waveAnnouncement = `WAVE ${waveNumber}`;
+
+    if (waveNumber % 10 === 0) {
+        waveType = 'boss_rush';
+        waveAnnouncement = `🔥 BOSS RUSH WAVE ${waveNumber}! 🔥`;
+        wave.enemiesTotal = 3 + Math.floor(waveNumber / 10);
+    } else if (waveNumber % 5 === 0) {
+        waveType = 'boss';
+        waveAnnouncement = `💀 BOSS WAVE ${waveNumber}! 💀`;
+        wave.enemiesTotal = 1; // Single boss
+    } else if (waveNumber % 3 === 0 && waveNumber >= 6) {
+        waveType = 'horde';
+        waveAnnouncement = `⚡ HORDE WAVE ${waveNumber}! ⚡`;
+        wave.enemiesTotal = 15 + waveNumber * 2;
+    } else {
+        waveType = 'normal';
+        wave.enemiesTotal = 5 + (waveNumber - 1) * 3;
+    }
+
     wave.enemiesAlive = wave.enemiesTotal;
     wave.enemies = [];
+    wave.type = waveType;
 
     updateWaveUI();
+    showWaveAnnouncement(waveAnnouncement);
 
     // Spawn enemies over time
     let spawnedCount = 0;
+    const spawnDelay = waveType === 'horde' ? 300 : 1000; // Faster spawn for horde
+
     const spawnInterval = setInterval(() => {
         if (spawnedCount < wave.enemiesTotal) {
-            spawnEnemy();
+            spawnWaveEnemy(waveType, spawnedCount);
             spawnedCount++;
         } else {
             clearInterval(spawnInterval);
         }
-    }, 1000);
+    }, spawnDelay);
 }
 
-function spawnEnemy() {
+function showWaveAnnouncement(text) {
+    // Create announcement element if it doesn't exist
+    let announcement = document.getElementById('waveAnnouncement');
+    if (!announcement) {
+        announcement = document.createElement('div');
+        announcement.id = 'waveAnnouncement';
+        announcement.style.position = 'absolute';
+        announcement.style.top = '40%';
+        announcement.style.left = '50%';
+        announcement.style.transform = 'translate(-50%, -50%)';
+        announcement.style.fontSize = '4rem';
+        announcement.style.fontWeight = 'bold';
+        announcement.style.color = '#ffaa00';
+        announcement.style.textShadow = '0 0 20px black, 0 0 40px rgba(255,170,0,0.5)';
+        announcement.style.zIndex = '1000';
+        announcement.style.pointerEvents = 'none';
+        announcement.style.opacity = '0';
+        announcement.style.transition = 'opacity 0.3s';
+        document.getElementById('ui').appendChild(announcement);
+    }
+
+    announcement.textContent = text;
+    announcement.style.opacity = '1';
+
+    setTimeout(() => {
+        announcement.style.opacity = '0';
+    }, 3000);
+}
+
+function spawnWaveEnemy(waveType, spawnIndex) {
     // Random position on arena edge
     const angle = Math.random() * Math.PI * 2;
     const distance = ARENA_RADIUS - 2;
     const x = Math.cos(angle) * distance;
     const z = Math.sin(angle) * distance;
 
-    // Determine enemy type based on wave and randomness
     let enemyType = 'normal';
 
-    // Boss wave (every 5 waves)
-    if (wave.current % 5 === 0 && wave.enemiesAlive === wave.enemiesTotal - 1) {
-        enemyType = 'boss';
-    } else if (wave.current >= 3) {
-        // After wave 3, introduce special enemies
-        const rand = Math.random();
-        if (rand < 0.2) enemyType = 'runner';
-        else if (rand < 0.4) enemyType = 'tank';
-        else if (rand < 0.5 && wave.current >= 5) enemyType = 'shooter';
+    switch(waveType) {
+        case 'boss':
+            enemyType = 'boss';
+            break;
+        case 'boss_rush':
+            enemyType = 'boss';
+            break;
+        case 'horde':
+            // Horde waves are mostly weak enemies
+            const rand = Math.random();
+            if (rand < 0.7) enemyType = 'runner';
+            else if (rand < 0.9) enemyType = 'normal';
+            else enemyType = 'tank';
+            break;
+        case 'normal':
+            // Normal waves have mixed enemy types based on wave number
+            if (wave.current >= 3) {
+                const rand = Math.random();
+                if (rand < 0.3) enemyType = 'runner';
+                else if (rand < 0.5) enemyType = 'tank';
+                else if (rand < 0.65 && wave.current >= 5) enemyType = 'shooter';
+                else enemyType = 'normal';
+            }
+            break;
     }
 
     createEnemyByType(enemyType, x, z);

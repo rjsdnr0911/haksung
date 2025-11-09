@@ -173,6 +173,10 @@ let weaponModel;
 let leftWeaponModel;
 let rightWeaponModel;
 
+// 3D Model caching system
+let modelCache = {};
+const MODEL_PATH = "assets/models/Zombie Apocalypse Kit - March 2024/";
+
 // Input handling
 let keys = {};
 let isPointerLocked = false;
@@ -966,120 +970,142 @@ function spawnWaveEnemy(waveType, spawnIndex) {
     createEnemyByType(enemyType, x, z);
 }
 
-function createEnemyByType(type, x, z, timeMultiplier = 1) {
-    let enemy, enemyMat;
-    const waveMultiplier = wave.current - 1;
+// ==================== 3D Model Loader ====================
+function load3DModel(modelPath, callback) {
+    // Check cache first
+    if (modelCache[modelPath]) {
+        // Clone cached model
+        const clonedMeshes = modelCache[modelPath].map(mesh => mesh.clone());
+        callback(clonedMeshes);
+        return;
+    }
 
-    // Use timeMultiplier for survival mode, waveMultiplier for wave defense
+    // Load model
+    BABYLON.SceneLoader.ImportMesh("", MODEL_PATH, modelPath, scene,
+        (meshes) => {
+            // Cache the original meshes
+            modelCache[modelPath] = meshes;
+
+            // Return cloned meshes for use
+            const clonedMeshes = meshes.map(mesh => mesh.clone());
+            callback(clonedMeshes);
+        },
+        null,
+        (scene, message, exception) => {
+            console.error("Error loading model:", modelPath, message);
+            // Fallback to basic box
+            callback(null);
+        }
+    );
+}
+
+function createEnemyByType(type, x, z, timeMultiplier = 1) {
+    const waveMultiplier = wave.current - 1;
     const scalingFactor = currentMode === GameMode.SURVIVAL ? timeMultiplier : waveMultiplier;
+
+    // Determine stats and model path based on type
+    let modelPath, stats, scale;
 
     switch(type) {
         case 'runner':
-            // Fast but weak
-            enemy = BABYLON.MeshBuilder.CreateBox("enemy", {
-                width: 1, height: 1, depth: 1
-            }, scene);
-            enemy.position = new BABYLON.Vector3(x, 0.5, z);
-
-            enemyMat = new BABYLON.StandardMaterial("enemyMat", scene);
-            enemyMat.diffuseColor = new BABYLON.Color3(1, 1, 0.2); // Yellow
-            enemyMat.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0);
-            enemy.material = enemyMat;
-
-            enemy.enemyType = 'runner';
-            enemy.health = Math.floor((25 + scalingFactor * 10) * timeMultiplier);
-            enemy.maxHealth = enemy.health;
-            enemy.speed = (5 + scalingFactor * 0.5) * Math.min(timeMultiplier * 0.3 + 0.7, 1.5);
-            enemy.damage = Math.floor((5 + scalingFactor * 3) * timeMultiplier);
+            modelPath = "Characters/glTF/Zombie_Arm.gltf"; // Crawling arm - fast!
+            scale = 0.8;
+            stats = {
+                enemyType: 'runner',
+                health: Math.floor((25 + scalingFactor * 10) * timeMultiplier),
+                speed: (5 + scalingFactor * 0.5) * Math.min(timeMultiplier * 0.3 + 0.7, 1.5),
+                damage: Math.floor((5 + scalingFactor * 3) * timeMultiplier)
+            };
             break;
 
         case 'tank':
-            // Slow but strong
-            enemy = BABYLON.MeshBuilder.CreateBox("enemy", {
-                width: 2, height: 2, depth: 2
-            }, scene);
-            enemy.position = new BABYLON.Vector3(x, 1, z);
-
-            enemyMat = new BABYLON.StandardMaterial("enemyMat", scene);
-            enemyMat.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5); // Gray
-            enemyMat.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.2);
-            enemy.material = enemyMat;
-
-            enemy.enemyType = 'tank';
-            enemy.health = Math.floor((150 + scalingFactor * 40) * timeMultiplier);
-            enemy.maxHealth = enemy.health;
-            enemy.speed = (1 + scalingFactor * 0.1) * Math.min(timeMultiplier * 0.3 + 0.7, 1.3);
-            enemy.damage = Math.floor((20 + scalingFactor * 8) * timeMultiplier);
+            modelPath = "Characters/glTF/Zombie_Chubby.gltf"; // Fat zombie - tanky
+            scale = 1.2;
+            stats = {
+                enemyType: 'tank',
+                health: Math.floor((150 + scalingFactor * 40) * timeMultiplier),
+                speed: (1 + scalingFactor * 0.1) * Math.min(timeMultiplier * 0.3 + 0.7, 1.3),
+                damage: Math.floor((20 + scalingFactor * 8) * timeMultiplier)
+            };
             break;
 
         case 'shooter':
-            // Ranged attacker
-            enemy = BABYLON.MeshBuilder.CreateCylinder("enemy", {
-                diameter: 1.2, height: 1.5, tessellation: 6
-            }, scene);
-            enemy.position = new BABYLON.Vector3(x, 0.75, z);
-
-            enemyMat = new BABYLON.StandardMaterial("enemyMat", scene);
-            enemyMat.diffuseColor = new BABYLON.Color3(0.2, 1, 0.2); // Green
-            enemyMat.emissiveColor = new BABYLON.Color3(0, 0.3, 0);
-            enemy.material = enemyMat;
-
-            enemy.enemyType = 'shooter';
-            enemy.health = Math.floor((40 + scalingFactor * 15) * timeMultiplier);
-            enemy.maxHealth = enemy.health;
-            enemy.speed = (1.5 + scalingFactor * 0.2) * Math.min(timeMultiplier * 0.3 + 0.7, 1.4);
-            enemy.damage = Math.floor((15 + scalingFactor * 5) * timeMultiplier);
-            enemy.shootRange = 10;
-            enemy.lastShootTime = 0;
-            enemy.shootCooldown = 2000;
+            modelPath = "Characters/glTF/Zombie_Ribcage.gltf"; // Ribcage - shooter
+            scale = 1.0;
+            stats = {
+                enemyType: 'shooter',
+                health: Math.floor((40 + scalingFactor * 15) * timeMultiplier),
+                speed: (1.5 + scalingFactor * 0.2) * Math.min(timeMultiplier * 0.3 + 0.7, 1.4),
+                damage: Math.floor((15 + scalingFactor * 5) * timeMultiplier),
+                shootRange: 10,
+                lastShootTime: 0,
+                shootCooldown: 2000
+            };
             break;
 
         case 'boss':
-            // Boss enemy - large and powerful
-            enemy = BABYLON.MeshBuilder.CreateSphere("enemy", {
-                diameter: 4, segments: 16
-            }, scene);
-            enemy.position = new BABYLON.Vector3(x, 2, z);
-
-            enemyMat = new BABYLON.StandardMaterial("enemyMat", scene);
-            enemyMat.diffuseColor = new BABYLON.Color3(0.8, 0, 0.8); // Purple
-            enemyMat.emissiveColor = new BABYLON.Color3(0.4, 0, 0.4);
-            enemy.material = enemyMat;
-
-            enemy.enemyType = 'boss';
-            enemy.health = Math.floor((500 + scalingFactor * 200) * timeMultiplier);
-            enemy.maxHealth = enemy.health;
-            enemy.speed = (1.5 + scalingFactor * 0.15) * Math.min(timeMultiplier * 0.2 + 0.8, 1.3);
-            enemy.damage = Math.floor((30 + scalingFactor * 10) * timeMultiplier);
-            enemy.isBoss = true;
+            modelPath = "Characters/glTF/Zombie_Ribcage.gltf"; // Large ribcage - boss
+            scale = 2.5;
+            stats = {
+                enemyType: 'boss',
+                health: Math.floor((500 + scalingFactor * 200) * timeMultiplier),
+                speed: (1.5 + scalingFactor * 0.15) * Math.min(timeMultiplier * 0.2 + 0.8, 1.3),
+                damage: Math.floor((30 + scalingFactor * 10) * timeMultiplier),
+                isBoss: true
+            };
             break;
 
-        default:
-            // Normal enemy
+        default: // normal
+            modelPath = "Characters/glTF/Zombie_Basic.gltf"; // Basic zombie
+            scale = 1.0;
+            stats = {
+                enemyType: 'normal',
+                health: Math.floor((50 + scalingFactor * 20) * timeMultiplier),
+                speed: (2 + scalingFactor * 0.3) * Math.min(timeMultiplier * 0.3 + 0.7, 1.4),
+                damage: Math.floor((10 + scalingFactor * 5) * timeMultiplier)
+            };
+    }
+
+    // Load 3D model
+    load3DModel(modelPath, (meshes) => {
+        let enemy;
+
+        if (meshes && meshes.length > 0) {
+            // Use 3D model
+            enemy = meshes[0]; // Main parent mesh
+
+            // Position and scale
+            enemy.position = new BABYLON.Vector3(x, 0, z);
+            enemy.scaling = new BABYLON.Vector3(scale, scale, scale);
+
+            // Merge all child meshes into parent for easier management
+            for (let i = 1; i < meshes.length; i++) {
+                meshes[i].parent = enemy;
+            }
+        } else {
+            // Fallback to box if model fails to load
             enemy = BABYLON.MeshBuilder.CreateBox("enemy", { size: 1.5 }, scene);
             enemy.position = new BABYLON.Vector3(x, 0.75, z);
 
-            enemyMat = new BABYLON.StandardMaterial("enemyMat", scene);
-            enemyMat.diffuseColor = new BABYLON.Color3(1, 0.2, 0.2); // Red
-            enemyMat.emissiveColor = new BABYLON.Color3(0.3, 0, 0);
-            enemy.material = enemyMat;
+            const fallbackMat = new BABYLON.StandardMaterial("enemyMat", scene);
+            fallbackMat.diffuseColor = new BABYLON.Color3(1, 0.2, 0.2);
+            enemy.material = fallbackMat;
+        }
 
-            enemy.enemyType = 'normal';
-            enemy.health = Math.floor((50 + scalingFactor * 20) * timeMultiplier);
-            enemy.maxHealth = enemy.health;
-            enemy.speed = (2 + scalingFactor * 0.3) * Math.min(timeMultiplier * 0.3 + 0.7, 1.4);
-            enemy.damage = Math.floor((10 + scalingFactor * 5) * timeMultiplier);
-    }
+        // Apply stats
+        Object.assign(enemy, stats);
+        enemy.maxHealth = enemy.health;
+        enemy.lastAttackTime = 0;
+        enemy.attackCooldown = 1000;
 
-    enemy.lastAttackTime = 0;
-    enemy.attackCooldown = 1000;
+        // Add to enemies array
+        wave.enemies.push(enemy);
 
-    wave.enemies.push(enemy);
-
-    // Show boss health bar in Wave Defense mode
-    if (enemy.isBoss && currentMode === GameMode.WAVE_DEFENSE) {
-        showBossHealthBar(enemy);
-    }
+        // Show boss health bar in Wave Defense mode
+        if (enemy.isBoss && currentMode === GameMode.WAVE_DEFENSE) {
+            showBossHealthBar(enemy);
+        }
+    });
 }
 
 function updateGame() {
@@ -2368,16 +2394,73 @@ function createSurvivalMap() {
     ground.position.y = 0;
 
     const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
-    groundMat.diffuseColor = new BABYLON.Color3(0.2, 0.3, 0.2);
+    groundMat.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3); // Darker for road look
     groundMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
     ground.material = groundMat;
     ground.checkCollisions = true;
 
     arena = ground;
 
-    // Add boundary walls (invisible)
-    const halfSize = survival.mapSize / 2;
-    // Just use the ground bounds for collision detection
+    // Add street tiles for visual variety
+    const tileSize = 10;
+    const tilesPerRow = Math.floor(survival.mapSize / tileSize);
+    const offset = (survival.mapSize / 2) - (tileSize / 2);
+
+    const streetModels = [
+        "Environment/glTF/Street_Straight.gltf",
+        "Environment/glTF/Street_Turn.gltf"
+    ];
+
+    // Add some random street tiles
+    for (let i = 0; i < 10; i++) {
+        const modelPath = streetModels[Math.floor(Math.random() * streetModels.length)];
+        const randomX = (Math.random() - 0.5) * survival.mapSize * 0.8;
+        const randomZ = (Math.random() - 0.5) * survival.mapSize * 0.8;
+
+        load3DModel(modelPath, (meshes) => {
+            if (meshes && meshes.length > 0) {
+                const tile = meshes[0];
+                tile.position = new BABYLON.Vector3(randomX, 0, randomZ);
+                tile.rotation.y = Math.random() * Math.PI * 2; // Random rotation
+                tile.scaling = new BABYLON.Vector3(10, 10, 10); // Scale up
+
+                // Make children follow parent
+                for (let j = 1; j < meshes.length; j++) {
+                    meshes[j].parent = tile;
+                }
+            }
+        });
+    }
+
+    // Add random obstacles
+    const obstacles = [
+        "Environment/glTF/Barrel.gltf",
+        "Environment/glTF/TrafficCone_1.gltf",
+        "Environment/glTF/TrafficBarrier_1.gltf",
+        "Environment/glTF/Container_Red.gltf",
+        "Environment/glTF/Couch.gltf",
+        "Environment/glTF/TrashBag_1.gltf"
+    ];
+
+    for (let i = 0; i < 30; i++) {
+        const modelPath = obstacles[Math.floor(Math.random() * obstacles.length)];
+        const randomX = (Math.random() - 0.5) * survival.mapSize * 0.9;
+        const randomZ = (Math.random() - 0.5) * survival.mapSize * 0.9;
+
+        load3DModel(modelPath, (meshes) => {
+            if (meshes && meshes.length > 0) {
+                const obstacle = meshes[0];
+                obstacle.position = new BABYLON.Vector3(randomX, 0, randomZ);
+                obstacle.rotation.y = Math.random() * Math.PI * 2;
+                obstacle.scaling = new BABYLON.Vector3(3, 3, 3);
+
+                // Make children follow parent
+                for (let j = 1; j < meshes.length; j++) {
+                    meshes[j].parent = obstacle;
+                }
+            }
+        });
+    }
 }
 
 // Start survival timer

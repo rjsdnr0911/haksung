@@ -1076,6 +1076,11 @@ function createEnemyByType(type, x, z, timeMultiplier = 1) {
     enemy.attackCooldown = 1000;
 
     wave.enemies.push(enemy);
+
+    // Show boss health bar in Wave Defense mode
+    if (enemy.isBoss && currentMode === GameMode.WAVE_DEFENSE) {
+        showBossHealthBar(enemy);
+    }
 }
 
 function updateGame() {
@@ -1414,6 +1419,11 @@ function damageEnemy(enemy, damage, isCrit = false) {
 
     enemy.health -= damage;
 
+    // Update boss health bar if this is a boss
+    if (enemy.isBoss && currentMode === GameMode.WAVE_DEFENSE) {
+        updateBossHealthBar(enemy);
+    }
+
     // Show damage number
     showDamageNumber(enemy.position, damage, isCrit);
 
@@ -1456,6 +1466,18 @@ function killEnemy(enemy) {
     enemy.isDead = true;
 
     const enemyPosition = enemy.position.clone();
+
+    // Hide boss health bar if this was a boss
+    if (enemy.isBoss && currentMode === GameMode.WAVE_DEFENSE) {
+        // Check if there are any other bosses still alive
+        const otherBoss = wave.enemies.find(e => e !== enemy && e.isBoss && !e.isDead);
+        if (!otherBoss) {
+            hideBossHealthBar();
+        } else {
+            // Switch to showing the other boss
+            showBossHealthBar(otherBoss);
+        }
+    }
 
     const index = wave.enemies.indexOf(enemy);
     if (index > -1) {
@@ -1868,7 +1890,14 @@ function reload() {
 
 function onWaveClear() {
     currentState = GameState.PERK_SELECT;
-    showPerkSelection();
+
+    // Show wave clear message
+    showWaveAnnouncement(`✨ WAVE ${wave.current} CLEARED! ✨`);
+
+    // Small delay before showing perk selection
+    setTimeout(() => {
+        showPerkSelection();
+    }, 1500);
 }
 
 function showPerkSelection() {
@@ -2005,6 +2034,43 @@ function updateAmmoUI() {
 function updateWaveUI() {
     document.getElementById('waveNumber').textContent = wave.current;
     document.getElementById('enemiesRemaining').textContent = wave.enemiesAlive;
+}
+
+function showBossHealthBar(boss) {
+    const bossBar = document.getElementById('bossHealthBar');
+    if (!bossBar) return;
+
+    bossBar.style.display = 'block';
+    updateBossHealthBar(boss);
+}
+
+function hideBossHealthBar() {
+    const bossBar = document.getElementById('bossHealthBar');
+    if (bossBar) {
+        bossBar.style.display = 'none';
+    }
+}
+
+function updateBossHealthBar(boss) {
+    if (!boss || boss.isDisposed() || boss.isDead) {
+        hideBossHealthBar();
+        return;
+    }
+
+    const healthPercent = (boss.health / boss.maxHealth) * 100;
+    const healthFill = document.getElementById('bossHealthFill');
+    const healthText = document.getElementById('bossHealthText');
+    const bossName = document.getElementById('bossName');
+
+    if (healthFill) {
+        healthFill.style.width = healthPercent + '%';
+    }
+    if (healthText) {
+        healthText.textContent = Math.ceil(boss.health) + '/' + boss.maxHealth;
+    }
+    if (bossName) {
+        bossName.textContent = wave.type === 'boss_rush' ? '⚡ BOSS RUSH ⚡' : '💀 BOSS 💀';
+    }
 }
 
 // ==================== Fullscreen ====================

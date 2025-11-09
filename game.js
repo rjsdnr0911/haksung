@@ -864,6 +864,63 @@ function startSurvivalMode() {
     document.getElementById('startScreen').classList.add('hidden');
     document.getElementById('survivalHud').classList.remove('hidden');
 
+    // ========== IMPORTANT: Switch to Top-Down Camera ==========
+    // Dispose old FPS camera
+    if (camera) {
+        camera.detachControl(canvas);
+        camera.dispose();
+    }
+
+    // Create top-down camera (Megabonk style)
+    camera = new BABYLON.ArcRotateCamera(
+        "camera",
+        0,                           // Alpha (horizontal rotation)
+        Math.PI / 4,                 // Beta (vertical angle, 45 degrees from top)
+        15,                          // Radius (distance from target)
+        new BABYLON.Vector3(0, 0, 0), // Target (will follow player)
+        scene
+    );
+    camera.lowerRadiusLimit = 10;   // Min zoom
+    camera.upperRadiusLimit = 25;   // Max zoom
+    camera.lowerBetaLimit = Math.PI / 6;   // Don't go too flat
+    camera.upperBetaLimit = Math.PI / 3;   // Don't go too steep
+    camera.attachControl(canvas, true);
+    camera.panningSensibility = 0;  // Disable panning
+    camera.minZ = 0.1;
+
+    // Create player character mesh
+    if (playerMesh) playerMesh.dispose(); // Remove old if exists
+
+    playerMesh = BABYLON.MeshBuilder.CreateCylinder("player", {
+        diameter: 1.5,
+        height: 1.8,
+        tessellation: 16
+    }, scene);
+    playerMesh.position = new BABYLON.Vector3(0, 0.9, 0);
+
+    // Player material
+    const playerMat = new BABYLON.StandardMaterial("playerMat", scene);
+    playerMat.diffuseColor = new BABYLON.Color3(0.2, 0.6, 1.0); // Blue player
+    playerMat.emissiveColor = new BABYLON.Color3(0.1, 0.3, 0.5);
+    playerMesh.material = playerMat;
+
+    // Add direction indicator (cone on top)
+    const directionCone = BABYLON.MeshBuilder.CreateCylinder("dirCone", {
+        diameterTop: 0,
+        diameterBottom: 0.8,
+        height: 0.5,
+        tessellation: 8
+    }, scene);
+    directionCone.parent = playerMesh;
+    directionCone.position.y = 1.2;
+    directionCone.material = playerMat;
+
+    // Camera follows player
+    camera.lockedTarget = playerMesh;
+
+    console.log('[Camera] Switched to top-down view for Survival mode');
+    // ========== End Camera Setup ==========
+
     // Show mobile controls if on mobile
     if (isMobile) {
         document.getElementById('mobileControls').classList.add('active');
@@ -871,10 +928,6 @@ function startSurvivalMode() {
         document.getElementById('shootButton').style.display = 'flex';
         document.getElementById('shootRightButton').style.display = 'flex';
         document.getElementById('reloadButton').style.display = 'none';
-    } else {
-        // Request pointer lock for desktop
-        canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
-        canvas.requestPointerLock();
     }
 
     // Initialize survival mode
@@ -2820,11 +2873,24 @@ function updateSurvivalMode(deltaTime) {
 
     // Keep player within bounds
     const halfSize = survival.mapSize / 2 - 2;
-    if (Math.abs(camera.position.x) > halfSize) {
-        camera.position.x = Math.sign(camera.position.x) * halfSize;
-    }
-    if (Math.abs(camera.position.z) > halfSize) {
-        camera.position.z = Math.sign(camera.position.z) * halfSize;
+    const playerPos = getPlayerPosition();
+
+    if (playerMesh) {
+        // Top-down view: limit player mesh
+        if (Math.abs(playerMesh.position.x) > halfSize) {
+            playerMesh.position.x = Math.sign(playerMesh.position.x) * halfSize;
+        }
+        if (Math.abs(playerMesh.position.z) > halfSize) {
+            playerMesh.position.z = Math.sign(playerMesh.position.z) * halfSize;
+        }
+    } else {
+        // FPS view: limit camera
+        if (Math.abs(camera.position.x) > halfSize) {
+            camera.position.x = Math.sign(camera.position.x) * halfSize;
+        }
+        if (Math.abs(camera.position.z) > halfSize) {
+            camera.position.z = Math.sign(camera.position.z) * halfSize;
+        }
     }
 }
 
@@ -2868,31 +2934,10 @@ function spawnSurvivalEnemies(deltaTime) {
 
             // Keep trying until we find a valid spawn position
             do {
-                // Get player's facing direction to avoid spawning in front
-                const cameraDirection = camera.getDirection(BABYLON.Axis.Z);
-                const playerAngle = Math.atan2(cameraDirection.z, cameraDirection.x);
+                const playerPos = getPlayerPosition();
 
-                // Determine which sides are NOT in front of player
-                // Calculate which direction player is facing (N, E, S, W)
-                const facingAngle = ((playerAngle * 180 / Math.PI) + 360) % 360;
-
-                // Exclude the side player is facing (with 45 degree tolerance)
-                let availableSides = [];
-                if (facingAngle < 45 || facingAngle > 315) {
-                    // Facing East (+X), exclude right side
-                    availableSides = [0, 2, 3]; // top, bottom, left
-                } else if (facingAngle >= 45 && facingAngle < 135) {
-                    // Facing North (+Z), exclude top side
-                    availableSides = [1, 2, 3]; // right, bottom, left
-                } else if (facingAngle >= 135 && facingAngle < 225) {
-                    // Facing West (-X), exclude left side
-                    availableSides = [0, 1, 2]; // top, right, bottom
-                } else {
-                    // Facing South (-Z), exclude bottom side
-                    availableSides = [0, 1, 3]; // top, right, left
-                }
-
-                const side = availableSides[Math.floor(Math.random() * availableSides.length)];
+                // Spawn on random side of the map
+                const side = Math.floor(Math.random() * 4);
 
                 switch (side) {
                     case 0: // top
@@ -2914,8 +2959,8 @@ function spawnSurvivalEnemies(deltaTime) {
                 }
 
                 // Calculate distance from player
-                const dx = x - camera.position.x;
-                const dz = z - camera.position.z;
+                const dx = x - playerPos.x;
+                const dz = z - playerPos.z;
                 const distanceFromPlayer = Math.sqrt(dx * dx + dz * dz);
 
                 // If far enough from player, use this position
@@ -2961,13 +3006,14 @@ function spawnSurvivalEnemies(deltaTime) {
 
         // Keep trying until we find a valid spawn position
         do {
+            const playerPos = getPlayerPosition();
             const angle = Math.random() * Math.PI * 2;
             x = Math.cos(angle) * halfSize;
             z = Math.sin(angle) * halfSize;
 
             // Calculate distance from player
-            const dx = x - camera.position.x;
-            const dz = z - camera.position.z;
+            const dx = x - playerPos.x;
+            const dz = z - playerPos.z;
             const distanceFromPlayer = Math.sqrt(dx * dx + dz * dz);
 
             // If far enough from player, use this position

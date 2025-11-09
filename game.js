@@ -215,6 +215,9 @@ let itemMeshes = [];
 // Damage numbers storage
 let damageNumbers = [];
 
+// Health packs storage
+let healthPacks = [];
+
 // ==================== Initialization ====================
 window.addEventListener('DOMContentLoaded', function() {
     canvas = document.getElementById('renderCanvas');
@@ -891,9 +894,12 @@ function spawnEnemy() {
     createEnemyByType(enemyType, x, z);
 }
 
-function createEnemyByType(type, x, z) {
+function createEnemyByType(type, x, z, timeMultiplier = 1) {
     let enemy, enemyMat;
     const waveMultiplier = wave.current - 1;
+
+    // Use timeMultiplier for survival mode, waveMultiplier for wave defense
+    const scalingFactor = currentMode === GameMode.SURVIVAL ? timeMultiplier : waveMultiplier;
 
     switch(type) {
         case 'runner':
@@ -909,10 +915,10 @@ function createEnemyByType(type, x, z) {
             enemy.material = enemyMat;
 
             enemy.enemyType = 'runner';
-            enemy.health = 25 + waveMultiplier * 10;
+            enemy.health = Math.floor((25 + scalingFactor * 10) * timeMultiplier);
             enemy.maxHealth = enemy.health;
-            enemy.speed = 5 + waveMultiplier * 0.5;
-            enemy.damage = 5 + waveMultiplier * 3;
+            enemy.speed = (5 + scalingFactor * 0.5) * Math.min(timeMultiplier * 0.3 + 0.7, 1.5);
+            enemy.damage = Math.floor((5 + scalingFactor * 3) * timeMultiplier);
             break;
 
         case 'tank':
@@ -928,10 +934,10 @@ function createEnemyByType(type, x, z) {
             enemy.material = enemyMat;
 
             enemy.enemyType = 'tank';
-            enemy.health = 150 + waveMultiplier * 40;
+            enemy.health = Math.floor((150 + scalingFactor * 40) * timeMultiplier);
             enemy.maxHealth = enemy.health;
-            enemy.speed = 1 + waveMultiplier * 0.1;
-            enemy.damage = 20 + waveMultiplier * 8;
+            enemy.speed = (1 + scalingFactor * 0.1) * Math.min(timeMultiplier * 0.3 + 0.7, 1.3);
+            enemy.damage = Math.floor((20 + scalingFactor * 8) * timeMultiplier);
             break;
 
         case 'shooter':
@@ -947,10 +953,10 @@ function createEnemyByType(type, x, z) {
             enemy.material = enemyMat;
 
             enemy.enemyType = 'shooter';
-            enemy.health = 40 + waveMultiplier * 15;
+            enemy.health = Math.floor((40 + scalingFactor * 15) * timeMultiplier);
             enemy.maxHealth = enemy.health;
-            enemy.speed = 1.5 + waveMultiplier * 0.2;
-            enemy.damage = 15 + waveMultiplier * 5;
+            enemy.speed = (1.5 + scalingFactor * 0.2) * Math.min(timeMultiplier * 0.3 + 0.7, 1.4);
+            enemy.damage = Math.floor((15 + scalingFactor * 5) * timeMultiplier);
             enemy.shootRange = 10;
             enemy.lastShootTime = 0;
             enemy.shootCooldown = 2000;
@@ -969,10 +975,10 @@ function createEnemyByType(type, x, z) {
             enemy.material = enemyMat;
 
             enemy.enemyType = 'boss';
-            enemy.health = 500 + waveMultiplier * 200;
+            enemy.health = Math.floor((500 + scalingFactor * 200) * timeMultiplier);
             enemy.maxHealth = enemy.health;
-            enemy.speed = 1.5 + waveMultiplier * 0.15;
-            enemy.damage = 30 + waveMultiplier * 10;
+            enemy.speed = (1.5 + scalingFactor * 0.15) * Math.min(timeMultiplier * 0.2 + 0.8, 1.3);
+            enemy.damage = Math.floor((30 + scalingFactor * 10) * timeMultiplier);
             enemy.isBoss = true;
             break;
 
@@ -987,10 +993,10 @@ function createEnemyByType(type, x, z) {
             enemy.material = enemyMat;
 
             enemy.enemyType = 'normal';
-            enemy.health = 50 + waveMultiplier * 20;
+            enemy.health = Math.floor((50 + scalingFactor * 20) * timeMultiplier);
             enemy.maxHealth = enemy.health;
-            enemy.speed = 2 + waveMultiplier * 0.3;
-            enemy.damage = 10 + waveMultiplier * 5;
+            enemy.speed = (2 + scalingFactor * 0.3) * Math.min(timeMultiplier * 0.3 + 0.7, 1.4);
+            enemy.damage = Math.floor((10 + scalingFactor * 5) * timeMultiplier);
     }
 
     enemy.lastAttackTime = 0;
@@ -1020,6 +1026,14 @@ function updateGame() {
 
     // Update damage numbers
     updateDamageNumbers(deltaTime);
+
+    // Update health packs
+    if (currentMode === GameMode.SURVIVAL) {
+        updateHealthPacks(deltaTime);
+    }
+
+    // Update crosshair targeting
+    updateCrosshair();
 
     // Mode-specific updates
     if (currentMode === GameMode.SURVIVAL) {
@@ -1330,6 +1344,9 @@ function damageEnemy(enemy, damage, isCrit = false) {
     // Show damage number
     showDamageNumber(enemy.position, damage, isCrit);
 
+    // Show hit marker
+    showHitMarker();
+
     // Visual feedback
     if (isCrit) {
         enemy.material.emissiveColor = new BABYLON.Color3(1, 1, 0); // Yellow for crit
@@ -1365,6 +1382,8 @@ function killEnemy(enemy) {
 
     enemy.isDead = true;
 
+    const enemyPosition = enemy.position.clone();
+
     const index = wave.enemies.indexOf(enemy);
     if (index > -1) {
         wave.enemies.splice(index, 1);
@@ -1378,6 +1397,11 @@ function killEnemy(enemy) {
         survival.killCount++;
         addXP(5); // Add XP in survival mode
         updateKillCountUI();
+
+        // Drop health pack with 8% chance
+        if (Math.random() < 0.08) {
+            createHealthPack(enemyPosition);
+        }
     }
 
     enemy.dispose();
@@ -1493,6 +1517,104 @@ function updateItemInventoryUI() {
         `;
 
         container.appendChild(slot);
+    }
+}
+
+// ==================== Crosshair & Hit Feedback ====================
+function updateCrosshair() {
+    if (currentState !== GameState.PLAYING) return;
+
+    const crosshair = document.getElementById('crosshair');
+    if (!crosshair) return;
+
+    // Raycast from camera center
+    const ray = camera.getForwardRay(100);
+    const hit = scene.pickWithRay(ray, (mesh) => {
+        return wave.enemies.includes(mesh);
+    });
+
+    // Change crosshair color if aiming at enemy
+    if (hit && hit.pickedMesh) {
+        crosshair.classList.add('targeting');
+    } else {
+        crosshair.classList.remove('targeting');
+    }
+}
+
+function showHitMarker() {
+    const hitMarker = document.getElementById('hitMarker');
+    if (!hitMarker) return;
+
+    // Remove existing show class
+    hitMarker.classList.remove('show');
+
+    // Trigger reflow to restart animation
+    void hitMarker.offsetWidth;
+
+    // Add show class
+    hitMarker.classList.add('show');
+}
+
+// ==================== Health Pack System ====================
+function createHealthPack(position) {
+    const healthPack = BABYLON.MeshBuilder.CreateSphere("healthPack", {
+        diameter: 0.8,
+        segments: 8
+    }, scene);
+    healthPack.position = position.clone();
+    healthPack.position.y = 0.5;
+
+    const material = new BABYLON.StandardMaterial("healthPackMat", scene);
+    material.diffuseColor = new BABYLON.Color3(0, 1, 0.3); // Green
+    material.emissiveColor = new BABYLON.Color3(0, 0.5, 0.15);
+    healthPack.material = material;
+
+    // Add pulsing animation
+    healthPack.healAmount = 30;
+    healthPack.lifetime = 0;
+    healthPack.maxLifetime = 15; // Disappears after 15 seconds
+
+    healthPacks.push(healthPack);
+}
+
+function updateHealthPacks(deltaTime) {
+    const pickupRadius = 2.0;
+
+    for (let i = healthPacks.length - 1; i >= 0; i--) {
+        const pack = healthPacks[i];
+
+        if (!pack || pack.isDisposed()) {
+            healthPacks.splice(i, 1);
+            continue;
+        }
+
+        pack.lifetime += deltaTime;
+
+        // Pulsing effect
+        const pulseScale = 1 + Math.sin(pack.lifetime * 4) * 0.15;
+        pack.scaling = new BABYLON.Vector3(pulseScale, pulseScale, pulseScale);
+
+        // Rotate
+        pack.rotation.y += deltaTime * 2;
+
+        // Check if player is near
+        const distance = BABYLON.Vector3.Distance(camera.position, pack.position);
+        if (distance < pickupRadius) {
+            // Heal player
+            player.health = Math.min(player.maxHealth, player.health + pack.healAmount);
+            updateSurvivalHealthUI();
+
+            // Remove health pack
+            pack.dispose();
+            healthPacks.splice(i, 1);
+            continue;
+        }
+
+        // Remove if expired
+        if (pack.lifetime >= pack.maxLifetime) {
+            pack.dispose();
+            healthPacks.splice(i, 1);
+        }
     }
 }
 
@@ -2120,55 +2242,84 @@ function updateWeaponCooldown(weapon, deltaTime) {
 
 let enemySpawnTimer = 0;
 let enemySpawnRate = 1.0; // seconds between spawns
+let bossSpawnTimer = 0;
 
 function spawnSurvivalEnemies(deltaTime) {
     enemySpawnTimer += deltaTime;
+    bossSpawnTimer += deltaTime;
+
+    const timeMinutes = survival.timeElapsed / 60;
+
+    // Time multiplier for enemy stats (1.0 at start, scales up over time)
+    const timeMultiplier = 1 + (timeMinutes / 5); // +1 every 5 minutes
 
     // Spawn rate increases over time
-    const timeMinutes = survival.timeElapsed / 60;
     enemySpawnRate = Math.max(0.2, 1.0 - timeMinutes * 0.05);
 
+    // Spawn count increases over time (1 at start, up to 4)
+    const spawnCount = Math.min(Math.floor(1 + timeMinutes / 3), 4);
+
+    // Regular enemy spawning
     if (enemySpawnTimer >= enemySpawnRate) {
         enemySpawnTimer = 0;
 
-        // Spawn enemy at random position on map edge
+        for (let i = 0; i < spawnCount; i++) {
+            // Spawn enemy at random position on map edge
+            const halfSize = survival.mapSize / 2 - 2;
+            const side = Math.floor(Math.random() * 4);
+            let x, z;
+
+            switch (side) {
+                case 0: // top
+                    x = (Math.random() - 0.5) * survival.mapSize;
+                    z = halfSize;
+                    break;
+                case 1: // right
+                    x = halfSize;
+                    z = (Math.random() - 0.5) * survival.mapSize;
+                    break;
+                case 2: // bottom
+                    x = (Math.random() - 0.5) * survival.mapSize;
+                    z = -halfSize;
+                    break;
+                case 3: // left
+                    x = -halfSize;
+                    z = (Math.random() - 0.5) * survival.mapSize;
+                    break;
+            }
+
+            // Determine enemy type based on time
+            let enemyType = 'normal';
+            if (timeMinutes > 10) {
+                const rand = Math.random();
+                if (rand < 0.25) enemyType = 'runner';
+                else if (rand < 0.45) enemyType = 'tank';
+                else if (rand < 0.65) enemyType = 'shooter';
+            } else if (timeMinutes > 5) {
+                const rand = Math.random();
+                if (rand < 0.3) enemyType = 'runner';
+                else if (rand < 0.5) enemyType = 'tank';
+                else if (rand < 0.65) enemyType = 'shooter';
+            } else if (timeMinutes > 2) {
+                const rand = Math.random();
+                if (rand < 0.2) enemyType = 'runner';
+                else if (rand < 0.35) enemyType = 'tank';
+            }
+
+            createEnemyByType(enemyType, x, z, timeMultiplier);
+        }
+    }
+
+    // Boss spawning every 5 minutes
+    if (bossSpawnTimer >= 300 && timeMinutes >= 5) { // First boss at 5 min
+        bossSpawnTimer = 0;
+
         const halfSize = survival.mapSize / 2 - 2;
-        const side = Math.floor(Math.random() * 4);
-        let x, z;
+        const angle = Math.random() * Math.PI * 2;
+        const x = Math.cos(angle) * halfSize;
+        const z = Math.sin(angle) * halfSize;
 
-        switch (side) {
-            case 0: // top
-                x = (Math.random() - 0.5) * survival.mapSize;
-                z = halfSize;
-                break;
-            case 1: // right
-                x = halfSize;
-                z = (Math.random() - 0.5) * survival.mapSize;
-                break;
-            case 2: // bottom
-                x = (Math.random() - 0.5) * survival.mapSize;
-                z = -halfSize;
-                break;
-            case 3: // left
-                x = -halfSize;
-                z = (Math.random() - 0.5) * survival.mapSize;
-                break;
-        }
-
-        // Determine enemy type based on time
-        let enemyType = 'normal';
-        if (timeMinutes > 10) {
-            const rand = Math.random();
-            if (rand < 0.3) enemyType = 'runner';
-            else if (rand < 0.5) enemyType = 'tank';
-            else if (rand < 0.7) enemyType = 'shooter';
-        } else if (timeMinutes > 5) {
-            const rand = Math.random();
-            if (rand < 0.2) enemyType = 'runner';
-            else if (rand < 0.4) enemyType = 'tank';
-        }
-
-        createEnemyByType(enemyType, x, z);
+        createEnemyByType('boss', x, z, timeMultiplier);
     }
 }
 
@@ -2216,7 +2367,7 @@ function createItem(type) {
             type: 'drone',
             name: '드론',
             level: 1,
-            damage: 30,
+            damage: 25, // Reduced from 30
             fireRate: 2, // shots per second
             range: 15,
             orbitRadius: 3,
@@ -2228,7 +2379,7 @@ function createItem(type) {
             type: 'orbital',
             name: '오비탈',
             level: 1,
-            damage: 10,
+            damage: 15, // Increased from 10 (risk/reward for contact damage)
             orbitRadius: 2.5,
             orbitSpeed: 3,
             angle: Math.random() * Math.PI * 2,
@@ -2241,7 +2392,7 @@ function createItem(type) {
             level: 1,
             damage: 50,
             radius: 8,
-            cooldown: 5, // seconds
+            cooldown: 7, // Increased from 5
             lastTriggerTime: 0
         },
         flameAura: {
@@ -2249,7 +2400,7 @@ function createItem(type) {
             name: '플레임 오라',
             level: 1,
             damage: 15, // DPS
-            radius: 4,
+            radius: 5, // Increased from 4
             tickRate: 0.5 // damage tick every 0.5 seconds
         },
         shockwave: {

@@ -121,10 +121,75 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 2rem;
-            color: white;
-            text-shadow: 0 0 5px black;
+            width: 30px;
+            height: 30px;
             pointer-events: none;
+            transition: all 0.1s;
+        }
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background: white;
+            box-shadow: 0 0 3px black;
+        }
+        #crosshair::before {
+            left: 50%;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            transform: translateX(-50%);
+        }
+        #crosshair::after {
+            top: 50%;
+            left: 0;
+            height: 2px;
+            width: 100%;
+            transform: translateY(-50%);
+        }
+        #crosshair.targeting {
+            filter: brightness(0) saturate(100%) invert(27%) sepia(97%) saturate(6247%) hue-rotate(358deg) brightness(95%) contrast(118%);
+        }
+
+        /* Hit marker */
+        .hit-marker {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            pointer-events: none;
+            opacity: 0;
+        }
+        .hit-marker::before,
+        .hit-marker::after {
+            content: '';
+            position: absolute;
+            background: white;
+            box-shadow: 0 0 5px rgba(255,255,255,0.8);
+        }
+        .hit-marker::before {
+            top: 0;
+            left: 50%;
+            width: 3px;
+            height: 12px;
+            transform: translateX(-50%) rotate(45deg);
+        }
+        .hit-marker::after {
+            top: 0;
+            right: 50%;
+            width: 3px;
+            height: 12px;
+            transform: translateX(50%) rotate(-45deg);
+        }
+        .hit-marker.show {
+            animation: hitMarkerAnim 0.2s;
+        }
+        @keyframes hitMarkerAnim {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
         }
 
         /* Perk Selection */
@@ -524,10 +589,14 @@
                 </div>
             </div>
 
-            <div id="crosshair" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2rem; color: white; text-shadow: 0 0 5px black;">+</div>
-
             <!-- Item Inventory -->
             <div id="itemInventory"></div>
+
+            <!-- Crosshair -->
+            <div id="crosshair"></div>
+
+            <!-- Hit Marker -->
+            <div class="hit-marker" id="hitMarker"></div>
         </div>
 
         <!-- Level Up Screen -->

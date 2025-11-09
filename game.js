@@ -228,6 +228,9 @@ window.addEventListener('DOMContentLoaded', function() {
     document.getElementById('restartBtn').addEventListener('click', () => {
         location.reload();
     });
+    document.getElementById('fullscreenBtn').addEventListener('click', () => {
+        toggleFullscreen();
+    });
 
     // Detect mobile
     detectMobile();

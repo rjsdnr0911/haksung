@@ -355,6 +355,26 @@
             background: rgba(68, 136, 255, 0.6);
         }
 
+        /* Fullscreen button */
+        #fullscreenBtn {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            padding: 15px 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 8px;
+            color: white;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        #fullscreenBtn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.8);
+            transform: scale(1.05);
+        }
+
         /* Mobile adjustments */
         @media (max-width: 768px) {
             #startScreen h1 {
@@ -423,6 +443,7 @@
                 <p>R: 재장전</p>
                 <p>F: 전체화면</p>
             </div>
+            <button id="fullscreenBtn">⛶ 전체화면</button>
         </div>
 
         <!-- Wave Defense HUD -->

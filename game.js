@@ -885,6 +885,11 @@ function startSurvivalMode() {
     survival.timeElapsed = 0;
     survival.items = [];
 
+    // Enable auto attack system
+    autoAttack.enabled = true;
+    autoAttack.currentTarget = null;
+    console.log('[Auto Attack] System enabled for Survival mode');
+
     // Clean up old item meshes
     for (const mesh of itemMeshes) {
         if (mesh) mesh.dispose();
@@ -1253,6 +1258,7 @@ function updateGame() {
 
     // Mode-specific updates
     if (currentMode === GameMode.SURVIVAL) {
+        updateAutoAttack(deltaTime);  // Auto attack system
         updateSurvivalMode(deltaTime);
         updateSurvivalHealthUI();
     } else if (currentMode === GameMode.WAVE_DEFENSE) {
@@ -1381,6 +1387,103 @@ function getPlayerPosition() {
         return playerMesh.position;
     } else {
         return camera.position;
+    }
+}
+
+// ==================== Auto Attack System ====================
+
+// Auto attack configuration
+const autoAttack = {
+    enabled: false,              // Will be enabled in Survival mode
+    currentTarget: null,
+    lastTargetUpdate: 0,
+    updateInterval: 100,         // Update target every 100ms
+    maxRange: 20,                // Maximum attack range
+    targetingMode: 'NEAREST'     // NEAREST, LOWEST_HP, BOSS, THREAT
+};
+
+// Find the nearest enemy for auto attack (uses existing findNearestEnemy function)
+function findNearestEnemyForAutoAttack() {
+    const playerPos = getPlayerPosition();
+
+    // First check for bosses in range
+    for (const enemy of wave.enemies) {
+        if (!enemy || enemy.isDisposed() || enemy.isDead) continue;
+        if (enemy.isBoss) {
+            const distance = BABYLON.Vector3.Distance(playerPos, enemy.position);
+            if (distance <= autoAttack.maxRange) {
+                return enemy; // Priority: always target boss
+            }
+        }
+    }
+
+    // Use existing findNearestEnemy function (defined later in the code)
+    // Note: There's another findNearestEnemy function in the codebase for survival items
+    // This one finds the nearest enemy within our auto attack range
+    return findNearestEnemy(playerPos, autoAttack.maxRange);
+}
+
+// Auto aim player towards target (for top-down view)
+function autoAimAtTarget(target, deltaTime) {
+    if (!target || !playerMesh) return;
+
+    const playerPos = playerMesh.position;
+    const targetPos = target.position;
+
+    // Calculate direction to target
+    const direction = targetPos.subtract(playerPos);
+    const targetAngle = Math.atan2(direction.x, direction.z);
+
+    // Smooth rotation using lerp
+    const currentAngle = playerMesh.rotation.y;
+    const lerpFactor = Math.min(deltaTime * 10, 1); // Adjust speed (10 = rotation speed)
+
+    playerMesh.rotation.y = BABYLON.Scalar.Lerp(currentAngle, targetAngle, lerpFactor);
+}
+
+// Update auto attack system
+function updateAutoAttack(deltaTime) {
+    if (!autoAttack.enabled) return;
+    if (currentMode !== GameMode.SURVIVAL) return;
+
+    const now = Date.now();
+
+    // Update target periodically (not every frame for performance)
+    if (now - autoAttack.lastTargetUpdate > autoAttack.updateInterval) {
+        autoAttack.currentTarget = findNearestEnemyForAutoAttack();
+        autoAttack.lastTargetUpdate = now;
+
+        // Debug: log target info (reduce spam)
+        if (Math.random() < 0.1) { // Only log 10% of the time
+            if (autoAttack.currentTarget) {
+                console.log('[Auto Attack] Target:', autoAttack.currentTarget.enemyType,
+                            'Distance:', BABYLON.Vector3.Distance(getPlayerPosition(), autoAttack.currentTarget.position).toFixed(2));
+            }
+        }
+    }
+
+    // Auto aim at target
+    if (autoAttack.currentTarget && !autoAttack.currentTarget.isDisposed()) {
+        autoAimAtTarget(autoAttack.currentTarget, deltaTime);
+
+        // Auto fire weapons at target
+        autoFireWeapons();
+    }
+}
+
+// Automatically fire both weapons at the target
+function autoFireWeapons() {
+    if (!autoAttack.currentTarget) return;
+    if (!survival.leftWeapon && !survival.rightWeapon) return;
+
+    // Fire left weapon
+    if (survival.leftWeapon) {
+        shootWeapon(survival.leftWeapon, true);
+    }
+
+    // Fire right weapon
+    if (survival.rightWeapon) {
+        shootWeapon(survival.rightWeapon, false);
     }
 }
 
@@ -3366,34 +3469,60 @@ function shootWeapon(weapon, isLeft) {
     weapon.lastShotTime = now;
     updateSurvivalWeaponUI();
 
-    // Shoot
-    const ray = camera.getForwardRay(100);
+    // Calculate muzzle position and direction based on view mode
+    let muzzlePos, fireDirection;
 
-    // Calculate muzzle position using camera's local coordinate system
-    const right = camera.getDirection(BABYLON.Axis.X);
-    const up = camera.getDirection(BABYLON.Axis.Y);
-    const forward = camera.getDirection(BABYLON.Axis.Z);
+    if (currentMode === GameMode.SURVIVAL && playerMesh) {
+        // Top-down view: shoot from player mesh position in the direction it's facing
+        const playerPos = playerMesh.position.clone();
+        const playerRotation = playerMesh.rotation.y;
 
-    const muzzlePos = camera.position
-        .add(right.scale(isLeft ? -0.3 : 0.3))  // 왼쪽/오른쪽
-        .add(up.scale(-0.15))                    // 아래로
-        .add(forward.scale(1.0));                // 앞으로
+        // Calculate direction based on player rotation
+        fireDirection = new BABYLON.Vector3(
+            Math.sin(playerRotation),
+            0,
+            Math.cos(playerRotation)
+        );
+
+        // Muzzle position offset (left/right of player)
+        const offsetDir = new BABYLON.Vector3(
+            Math.cos(playerRotation),
+            0,
+            -Math.sin(playerRotation)
+        );
+        const offset = isLeft ? -0.5 : 0.5;
+        muzzlePos = playerPos.add(offsetDir.scale(offset));
+        muzzlePos.y = 1.2; // Shoot from chest height
+    } else {
+        // FPS view: shoot from camera
+        const ray = camera.getForwardRay(100);
+        fireDirection = ray.direction;
+
+        const right = camera.getDirection(BABYLON.Axis.X);
+        const up = camera.getDirection(BABYLON.Axis.Y);
+        const forward = camera.getDirection(BABYLON.Axis.Z);
+
+        muzzlePos = camera.position
+            .add(right.scale(isLeft ? -0.3 : 0.3))
+            .add(up.scale(-0.15))
+            .add(forward.scale(1.0));
+    }
 
     // Shotgun fires multiple pellets
     if (weapon.type === 'shotgun') {
         for (let i = 0; i < weapon.pellets; i++) {
             const spread = weapon.spread;
-            const spreadX = (Math.random() - 0.5) * spread;
-            const spreadY = (Math.random() - 0.5) * spread;
-            const spreadDir = ray.direction.clone();
+            const spreadX = (Math.random() - 0.5) * spread * 0.01;
+            const spreadZ = (Math.random() - 0.5) * spread * 0.01;
+            const spreadDir = fireDirection.clone();
             spreadDir.x += spreadX;
-            spreadDir.y += spreadY;
+            spreadDir.z += spreadZ;
             spreadDir.normalize();
 
             fireBullet(muzzlePos, spreadDir, weapon.damage);
         }
     } else {
-        fireBullet(muzzlePos, ray.direction, weapon.damage);
+        fireBullet(muzzlePos, fireDirection, weapon.damage);
     }
 
     createMuzzleFlash(muzzlePos);

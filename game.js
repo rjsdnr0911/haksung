@@ -899,19 +899,41 @@ function showWaveAnnouncement(text) {
 }
 
 function spawnWaveEnemy(waveType, spawnIndex) {
-    // Get player's facing direction to avoid spawning in front
-    const cameraDirection = camera.getDirection(BABYLON.Axis.Z);
-    const playerAngle = Math.atan2(cameraDirection.z, cameraDirection.x);
+    // Minimum safe distance from player (meters)
+    const MIN_SPAWN_DISTANCE = 8;
 
-    // Spawn enemies behind or to the sides of player (not in front)
-    // Player's view is roughly 90 degrees, so spawn in the remaining 270 degrees
-    // Add random offset from behind (180 degrees ± 135 degrees)
-    const spawnAngleOffset = (Math.random() * 270 - 135) * (Math.PI / 180);
-    const angle = playerAngle + Math.PI + spawnAngleOffset; // +PI to be behind player
+    let x, z;
+    let attempts = 0;
+    const maxAttempts = 20;
 
-    const distance = ARENA_RADIUS - 2;
-    const x = Math.cos(angle) * distance;
-    const z = Math.sin(angle) * distance;
+    // Keep trying until we find a valid spawn position
+    do {
+        // Get player's facing direction to avoid spawning in front
+        const cameraDirection = camera.getDirection(BABYLON.Axis.Z);
+        const playerAngle = Math.atan2(cameraDirection.z, cameraDirection.x);
+
+        // Spawn enemies ONLY behind player (120 degree arc behind)
+        // This prevents enemies from spawning at the sides
+        // Random offset from directly behind: 180 degrees ± 60 degrees
+        const spawnAngleOffset = (Math.random() * 120 - 60) * (Math.PI / 180);
+        const angle = playerAngle + Math.PI + spawnAngleOffset; // +PI to be behind player
+
+        const distance = ARENA_RADIUS - 2;
+        x = Math.cos(angle) * distance;
+        z = Math.sin(angle) * distance;
+
+        // Calculate distance from player
+        const dx = x - camera.position.x;
+        const dz = z - camera.position.z;
+        const distanceFromPlayer = Math.sqrt(dx * dx + dz * dz);
+
+        // If far enough from player, use this position
+        if (distanceFromPlayer >= MIN_SPAWN_DISTANCE) {
+            break;
+        }
+
+        attempts++;
+    } while (attempts < maxAttempts);
 
     let enemyType = 'normal';
 
@@ -2437,52 +2459,73 @@ function spawnSurvivalEnemies(deltaTime) {
         enemySpawnTimer = 0;
 
         for (let i = 0; i < spawnCount; i++) {
-            // Get player's facing direction to avoid spawning in front
-            const cameraDirection = camera.getDirection(BABYLON.Axis.Z);
-            const playerAngle = Math.atan2(cameraDirection.z, cameraDirection.x);
-
-            // Determine which sides are NOT in front of player
-            // Calculate which direction player is facing (N, E, S, W)
-            const facingAngle = ((playerAngle * 180 / Math.PI) + 360) % 360;
-
-            // Exclude the side player is facing (with 45 degree tolerance)
-            let availableSides = [];
-            if (facingAngle < 45 || facingAngle > 315) {
-                // Facing East (+X), exclude right side
-                availableSides = [0, 2, 3]; // top, bottom, left
-            } else if (facingAngle >= 45 && facingAngle < 135) {
-                // Facing North (+Z), exclude top side
-                availableSides = [1, 2, 3]; // right, bottom, left
-            } else if (facingAngle >= 135 && facingAngle < 225) {
-                // Facing West (-X), exclude left side
-                availableSides = [0, 1, 2]; // top, right, bottom
-            } else {
-                // Facing South (-Z), exclude bottom side
-                availableSides = [0, 1, 3]; // top, right, left
-            }
-
+            // Minimum safe distance from player (meters)
+            const MIN_SPAWN_DISTANCE = 10;
             const halfSize = survival.mapSize / 2 - 2;
-            const side = availableSides[Math.floor(Math.random() * availableSides.length)];
-            let x, z;
 
-            switch (side) {
-                case 0: // top
-                    x = (Math.random() - 0.5) * survival.mapSize;
-                    z = halfSize;
+            let x, z;
+            let attempts = 0;
+            const maxAttempts = 20;
+
+            // Keep trying until we find a valid spawn position
+            do {
+                // Get player's facing direction to avoid spawning in front
+                const cameraDirection = camera.getDirection(BABYLON.Axis.Z);
+                const playerAngle = Math.atan2(cameraDirection.z, cameraDirection.x);
+
+                // Determine which sides are NOT in front of player
+                // Calculate which direction player is facing (N, E, S, W)
+                const facingAngle = ((playerAngle * 180 / Math.PI) + 360) % 360;
+
+                // Exclude the side player is facing (with 45 degree tolerance)
+                let availableSides = [];
+                if (facingAngle < 45 || facingAngle > 315) {
+                    // Facing East (+X), exclude right side
+                    availableSides = [0, 2, 3]; // top, bottom, left
+                } else if (facingAngle >= 45 && facingAngle < 135) {
+                    // Facing North (+Z), exclude top side
+                    availableSides = [1, 2, 3]; // right, bottom, left
+                } else if (facingAngle >= 135 && facingAngle < 225) {
+                    // Facing West (-X), exclude left side
+                    availableSides = [0, 1, 2]; // top, right, bottom
+                } else {
+                    // Facing South (-Z), exclude bottom side
+                    availableSides = [0, 1, 3]; // top, right, left
+                }
+
+                const side = availableSides[Math.floor(Math.random() * availableSides.length)];
+
+                switch (side) {
+                    case 0: // top
+                        x = (Math.random() - 0.5) * survival.mapSize;
+                        z = halfSize;
+                        break;
+                    case 1: // right
+                        x = halfSize;
+                        z = (Math.random() - 0.5) * survival.mapSize;
+                        break;
+                    case 2: // bottom
+                        x = (Math.random() - 0.5) * survival.mapSize;
+                        z = -halfSize;
+                        break;
+                    case 3: // left
+                        x = -halfSize;
+                        z = (Math.random() - 0.5) * survival.mapSize;
+                        break;
+                }
+
+                // Calculate distance from player
+                const dx = x - camera.position.x;
+                const dz = z - camera.position.z;
+                const distanceFromPlayer = Math.sqrt(dx * dx + dz * dz);
+
+                // If far enough from player, use this position
+                if (distanceFromPlayer >= MIN_SPAWN_DISTANCE) {
                     break;
-                case 1: // right
-                    x = halfSize;
-                    z = (Math.random() - 0.5) * survival.mapSize;
-                    break;
-                case 2: // bottom
-                    x = (Math.random() - 0.5) * survival.mapSize;
-                    z = -halfSize;
-                    break;
-                case 3: // left
-                    x = -halfSize;
-                    z = (Math.random() - 0.5) * survival.mapSize;
-                    break;
-            }
+                }
+
+                attempts++;
+            } while (attempts < maxAttempts);
 
             // Determine enemy type based on time
             let enemyType = 'normal';
@@ -2510,10 +2553,31 @@ function spawnSurvivalEnemies(deltaTime) {
     if (bossSpawnTimer >= 300 && timeMinutes >= 5) { // First boss at 5 min
         bossSpawnTimer = 0;
 
+        const MIN_SPAWN_DISTANCE = 12; // Bosses spawn even further away
         const halfSize = survival.mapSize / 2 - 2;
-        const angle = Math.random() * Math.PI * 2;
-        const x = Math.cos(angle) * halfSize;
-        const z = Math.sin(angle) * halfSize;
+
+        let x, z;
+        let attempts = 0;
+        const maxAttempts = 20;
+
+        // Keep trying until we find a valid spawn position
+        do {
+            const angle = Math.random() * Math.PI * 2;
+            x = Math.cos(angle) * halfSize;
+            z = Math.sin(angle) * halfSize;
+
+            // Calculate distance from player
+            const dx = x - camera.position.x;
+            const dz = z - camera.position.z;
+            const distanceFromPlayer = Math.sqrt(dx * dx + dz * dz);
+
+            // If far enough from player, use this position
+            if (distanceFromPlayer >= MIN_SPAWN_DISTANCE) {
+                break;
+            }
+
+            attempts++;
+        } while (attempts < maxAttempts);
 
         createEnemyByType('boss', x, z, timeMultiplier);
     }

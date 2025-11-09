@@ -1651,6 +1651,11 @@ function onWaveClear() {
 }
 
 function showPerkSelection() {
+    // Exit pointer lock to show cursor
+    if (document.exitPointerLock) {
+        document.exitPointerLock();
+    }
+
     document.getElementById('perkScreen').style.display = 'flex';
 
     // Select 3 random perks
@@ -1686,6 +1691,12 @@ function selectPerk(perk) {
 
     // Hide perk screen
     document.getElementById('perkScreen').style.display = 'none';
+
+    // Re-enable pointer lock for desktop
+    if (!isMobile) {
+        canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
+        canvas.requestPointerLock();
+    }
 
     // Start next wave
     currentState = GameState.PLAYING;
@@ -2685,6 +2696,11 @@ function levelUp() {
 }
 
 function showLevelUpScreen() {
+    // Exit pointer lock to show cursor
+    if (document.exitPointerLock) {
+        document.exitPointerLock();
+    }
+
     document.getElementById('levelUpScreen').classList.remove('hidden');
 
     // Generate 3 random upgrades
@@ -2824,6 +2840,13 @@ function generateUpgrades() {
 function applyUpgrade(upgrade) {
     upgrade.effect();
     document.getElementById('levelUpScreen').classList.add('hidden');
+
+    // Re-enable pointer lock for desktop
+    if (!isMobile) {
+        canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
+        canvas.requestPointerLock();
+    }
+
     currentState = GameState.PLAYING;
 }
 

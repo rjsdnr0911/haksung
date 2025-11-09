@@ -17,6 +17,7 @@ let currentMode = null; // Will be selected by player
 let scene, engine, camera;
 let canvas;
 let mouseSensitivity = 1.0;
+let playerMesh; // Player character mesh for top-down view
 
 // Player stats
 let player = {
@@ -286,14 +287,62 @@ function createScene() {
     scene.gravity = new BABYLON.Vector3(0, -9.81, 0);
     scene.collisionsEnabled = true;
 
-    // Camera (FPS style)
-    camera = new BABYLON.UniversalCamera("camera", new BABYLON.Vector3(0, 1.8, 0), scene);
-    camera.attachControl(canvas, false);
-    camera.speed = 0; // We'll handle movement manually
-    camera.angularSensibility = 2000 / mouseSensitivity; // Higher value = lower sensitivity
-    camera.minZ = 0.1;
-    camera.checkCollisions = true;
-    camera.applyGravity = false;
+    // Camera (Top-down view for Survival mode, FPS for Wave Defense)
+    if (currentMode === GameMode.SURVIVAL) {
+        // Top-down camera (Megabonk style)
+        camera = new BABYLON.ArcRotateCamera(
+            "camera",
+            0,                           // Alpha (horizontal rotation)
+            Math.PI / 4,                 // Beta (vertical angle, 45 degrees from top)
+            15,                          // Radius (distance from target)
+            new BABYLON.Vector3(0, 0, 0), // Target (will follow player)
+            scene
+        );
+        camera.lowerRadiusLimit = 10;   // Min zoom
+        camera.upperRadiusLimit = 25;   // Max zoom
+        camera.lowerBetaLimit = Math.PI / 6;   // Don't go too flat
+        camera.upperBetaLimit = Math.PI / 3;   // Don't go too steep
+        camera.attachControl(canvas, true);
+        camera.panningSensibility = 0;  // Disable panning
+        camera.minZ = 0.1;
+
+        // Create player character mesh
+        playerMesh = BABYLON.MeshBuilder.CreateCylinder("player", {
+            diameter: 1.5,
+            height: 1.8,
+            tessellation: 16
+        }, scene);
+        playerMesh.position = new BABYLON.Vector3(0, 0.9, 0);
+
+        // Player material
+        const playerMat = new BABYLON.StandardMaterial("playerMat", scene);
+        playerMat.diffuseColor = new BABYLON.Color3(0.2, 0.6, 1.0); // Blue player
+        playerMat.emissiveColor = new BABYLON.Color3(0.1, 0.3, 0.5);
+        playerMesh.material = playerMat;
+
+        // Add direction indicator (cone on top)
+        const directionCone = BABYLON.MeshBuilder.CreateCylinder("dirCone", {
+            diameterTop: 0,
+            diameterBottom: 0.8,
+            height: 0.5,
+            tessellation: 8
+        }, scene);
+        directionCone.parent = playerMesh;
+        directionCone.position.y = 1.2;
+        directionCone.material = playerMat;
+
+        // Camera follows player
+        camera.lockedTarget = playerMesh;
+    } else {
+        // FPS camera for Wave Defense mode
+        camera = new BABYLON.UniversalCamera("camera", new BABYLON.Vector3(0, 1.8, 0), scene);
+        camera.attachControl(canvas, false);
+        camera.speed = 0; // We'll handle movement manually
+        camera.angularSensibility = 2000 / mouseSensitivity;
+        camera.minZ = 0.1;
+        camera.checkCollisions = true;
+        camera.applyGravity = false;
+    }
 
     // Lighting - improved for better visibility
     const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
@@ -1221,6 +1270,60 @@ function updateGame() {
 }
 
 function handlePlayerMovement(deltaTime) {
+    if (currentMode === GameMode.SURVIVAL) {
+        // Top-down movement (move player mesh)
+        handleTopDownMovement(deltaTime);
+    } else {
+        // FPS movement (move camera)
+        handleFPSMovement(deltaTime);
+    }
+}
+
+function handleTopDownMovement(deltaTime) {
+    if (!playerMesh) return;
+
+    let movement = BABYLON.Vector3.Zero();
+
+    // Keyboard input (world-relative, not camera-relative)
+    if (keys['w'] || keys['W']) movement.z += 1;  // Forward
+    if (keys['s'] || keys['S']) movement.z -= 1;  // Backward
+    if (keys['d'] || keys['D']) movement.x += 1;  // Right
+    if (keys['a'] || keys['A']) movement.x -= 1;  // Left
+
+    // Mobile joystick input
+    if (isMobile && joystickActive) {
+        movement.x += joystickVector.x;
+        movement.z += joystickVector.y;
+    }
+
+    if (movement.length() > 0) {
+        movement.normalize();
+        const newPos = playerMesh.position.add(movement.scale(player.moveSpeed * deltaTime));
+
+        // Keep player within arena bounds
+        const distFromCenter = Math.sqrt(newPos.x * newPos.x + newPos.z * newPos.z);
+        const maxDistance = ARENA_RADIUS - 1.5;
+
+        if (distFromCenter < maxDistance) {
+            playerMesh.position = newPos;
+        } else {
+            // Clamp to boundary
+            const direction = new BABYLON.Vector3(newPos.x, 0, newPos.z).normalize();
+            const clampedPos = direction.scale(maxDistance - 0.1);
+            playerMesh.position.x = clampedPos.x;
+            playerMesh.position.z = clampedPos.z;
+        }
+
+        // Keep Y constant
+        playerMesh.position.y = 0.9;
+
+        // Rotate player to face movement direction
+        const angle = Math.atan2(movement.x, movement.z);
+        playerMesh.rotation.y = angle;
+    }
+}
+
+function handleFPSMovement(deltaTime) {
     const forward = camera.getDirection(BABYLON.Axis.Z);
     const right = camera.getDirection(BABYLON.Axis.X);
 
@@ -1247,22 +1350,20 @@ function handlePlayerMovement(deltaTime) {
         movement.normalize();
         const newPos = camera.position.add(movement.scale(player.moveSpeed * deltaTime));
 
-        // Keep player within arena bounds - stronger enforcement
+        // Keep player within arena bounds
         const distFromCenter = Math.sqrt(newPos.x * newPos.x + newPos.z * newPos.z);
-        const maxDistance = ARENA_RADIUS - 1.5; // Increased margin
+        const maxDistance = ARENA_RADIUS - 1.5;
 
         if (distFromCenter < maxDistance) {
             camera.position = newPos;
         } else {
-            // If trying to go past boundary, allow tangential movement only
+            // Clamp to boundary
             const direction = new BABYLON.Vector3(newPos.x, 0, newPos.z).normalize();
             const currentDist = Math.sqrt(camera.position.x * camera.position.x + camera.position.z * camera.position.z);
 
-            // Only update if we're not pushing further out
             if (distFromCenter <= currentDist) {
                 camera.position = newPos;
             } else {
-                // Clamp to boundary
                 const clampedPos = direction.scale(maxDistance - 0.1);
                 camera.position.x = clampedPos.x;
                 camera.position.z = clampedPos.z;
@@ -1274,8 +1375,18 @@ function handlePlayerMovement(deltaTime) {
     }
 }
 
+// Helper function to get player position (works for both modes)
+function getPlayerPosition() {
+    if (currentMode === GameMode.SURVIVAL && playerMesh) {
+        return playerMesh.position;
+    } else {
+        return camera.position;
+    }
+}
+
 function updateEnemies(deltaTime) {
     const now = Date.now();
+    const playerPos = getPlayerPosition();
 
     for (let i = wave.enemies.length - 1; i >= 0; i--) {
         const enemy = wave.enemies[i];
@@ -1286,7 +1397,7 @@ function updateEnemies(deltaTime) {
         }
 
         // Move towards player
-        const direction = camera.position.subtract(enemy.position);
+        const direction = playerPos.subtract(enemy.position);
         const distance = direction.length();
         direction.normalize();
 
@@ -1340,7 +1451,8 @@ function updateEnemies(deltaTime) {
 }
 
 function enemyShoot(enemy) {
-    const direction = camera.position.subtract(enemy.position);
+    const playerPos = getPlayerPosition();
+    const direction = playerPos.subtract(enemy.position);
     direction.normalize();
 
     // Create projectile
@@ -1380,7 +1492,8 @@ function updateEnemyProjectiles(deltaTime) {
         proj.lifetime += deltaTime;
 
         // Check collision with player
-        const distToPlayer = BABYLON.Vector3.Distance(proj.position, camera.position);
+        const playerPos = getPlayerPosition();
+        const distToPlayer = BABYLON.Vector3.Distance(proj.position, playerPos);
         if (distToPlayer < 1) {
             damagePlayer(proj.damage);
             proj.dispose();

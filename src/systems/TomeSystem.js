@@ -2,67 +2,73 @@ import { Config } from '../core/Config.js';
 
 // Tome (upgrade) definitions
 export const TOMES = {
-    // Weapon upgrades
+    // Weapon upgrades (apply to all weapons)
     damage_boost: {
         id: 'damage_boost',
         name: '데미지 강화',
-        description: '무기 데미지 +15%',
+        description: '모든 무기 데미지 +15%',
         rarity: 'common',
         icon: '⚔️',
         maxStacks: 5,
         apply: (player, game) => {
             if (!game.weaponSystem) return;
-            const weapon = game.weaponSystem.weapon;
-            weapon.damage = Math.floor(weapon.damage * 1.15);
-            console.log('[TomeSystem] Damage increased to:', weapon.damage);
+            const weapons = game.weaponSystem.getAllWeapons();
+            weapons.forEach(slot => {
+                slot.weapon.damage = Math.floor(slot.weapon.damage * 1.15);
+            });
+            console.log('[TomeSystem] All weapons damage increased by 15%');
         }
     },
 
     fire_rate_boost: {
         id: 'fire_rate_boost',
         name: '연사 강화',
-        description: '연사속도 +20%',
+        description: '모든 무기 연사속도 +20%',
         rarity: 'common',
         icon: '🔥',
         maxStacks: 5,
         apply: (player, game) => {
             if (!game.weaponSystem) return;
-            const weapon = game.weaponSystem.weapon;
-            weapon.fireRate *= 1.2;
-            console.log('[TomeSystem] Fire rate increased to:', weapon.fireRate);
+            const weapons = game.weaponSystem.getAllWeapons();
+            weapons.forEach(slot => {
+                slot.weapon.fireRate *= 1.2;
+                slot.fireInterval = 1000 / slot.weapon.fireRate;
+            });
+            console.log('[TomeSystem] All weapons fire rate increased by 20%');
         }
     },
 
     range_boost: {
         id: 'range_boost',
         name: '사거리 증가',
-        description: '무기 사거리 +30%',
+        description: '모든 무기 사거리 +30%',
         rarity: 'common',
         icon: '🎯',
         maxStacks: 3,
         apply: (player, game) => {
             if (!game.weaponSystem) return;
-            const weapon = game.weaponSystem.weapon;
-            weapon.range = Math.floor(weapon.range * 1.3);
-            if (game.weaponSystem.autoAttack) {
-                game.weaponSystem.autoAttack.maxRange = weapon.range;
-            }
-            console.log('[TomeSystem] Range increased to:', weapon.range);
+            const weapons = game.weaponSystem.getAllWeapons();
+            weapons.forEach(slot => {
+                slot.weapon.range = Math.floor(slot.weapon.range * 1.3);
+            });
+            console.log('[TomeSystem] All weapons range increased by 30%');
         }
     },
 
     projectile_speed: {
         id: 'projectile_speed',
         name: '투사체 가속',
-        description: '총알 속도 +25%',
+        description: '모든 투사체 속도 +25%',
         rarity: 'common',
         icon: '💨',
         maxStacks: 3,
         apply: (player, game) => {
             if (!game.weaponSystem) return;
-            const weapon = game.weaponSystem.weapon;
-            weapon.projectileSpeed = Math.floor(weapon.projectileSpeed * 1.25);
-            console.log('[TomeSystem] Projectile speed increased to:', weapon.projectileSpeed);
+            const weapons = game.weaponSystem.getAllWeapons();
+            weapons.forEach(slot => {
+                slot.weapon.projectileSpeed = Math.floor(slot.weapon.projectileSpeed * 1.25);
+            });
+            console.log('[TomeSystem] All projectiles speed increased by 25%');
         }
     },
 
@@ -124,25 +130,26 @@ export const TOMES = {
     multi_shot: {
         id: 'multi_shot',
         name: '다중 발사',
-        description: '+1 추가 발사체 (10도 퍼짐)',
+        description: '첫 무기에 +1 발사체',
         rarity: 'epic',
         icon: '🔫',
         maxStacks: 3,
         apply: (player, game) => {
             if (!game.weaponSystem) return;
-            const weapon = game.weaponSystem.weapon;
+            const slot = game.weaponSystem.getWeaponSlot(0);
+            if (!slot) return;
 
             // Increase projectiles per shot
-            weapon.projectilesPerShot = (weapon.projectilesPerShot || 1) + 1;
+            slot.weapon.projectilesPerShot = (slot.weapon.projectilesPerShot || 1) + 1;
 
             // Set or increase spread
-            if (weapon.spread === 0) {
-                weapon.spread = 10; // Initial spread of 10 degrees
+            if (slot.weapon.spread === 0) {
+                slot.weapon.spread = 10;
             } else {
-                weapon.spread += 5; // Increase spread by 5 degrees per stack
+                slot.weapon.spread += 5;
             }
 
-            console.log('[TomeSystem] Multi-shot applied. Projectiles:', weapon.projectilesPerShot, 'Spread:', weapon.spread);
+            console.log('[TomeSystem] Multi-shot applied. Projectiles:', slot.weapon.projectilesPerShot, 'Spread:', slot.weapon.spread);
         }
     },
 
@@ -154,13 +161,85 @@ export const TOMES = {
         icon: '✨',
         maxStacks: 4,
         apply: (player, game) => {
-            // Apply multiplier to all XP sources
             Object.keys(Config.enemies.types).forEach(type => {
                 Config.enemies.types[type].xpValue = Math.floor(
                     Config.enemies.types[type].xpValue * 1.25
                 );
             });
             console.log('[TomeSystem] XP gain increased by 25%');
+        }
+    },
+
+    // New weapon unlocks
+    unlock_shotgun: {
+        id: 'unlock_shotgun',
+        name: '샷건 획득',
+        description: '강력한 근거리 샷건 추가',
+        rarity: 'rare',
+        icon: '💥',
+        maxStacks: 1,
+        apply: (player, game) => {
+            if (!game.weaponSystem) return;
+            const added = game.weaponSystem.addWeapon('shotgun');
+            if (added) {
+                console.log('[TomeSystem] Shotgun unlocked!');
+            } else {
+                console.warn('[TomeSystem] Could not add shotgun (max slots?)');
+            }
+        }
+    },
+
+    unlock_laser: {
+        id: 'unlock_laser',
+        name: '레이저 획득',
+        description: '관통 레이저 무기 추가',
+        rarity: 'epic',
+        icon: '⚡',
+        maxStacks: 1,
+        apply: (player, game) => {
+            if (!game.weaponSystem) return;
+            const added = game.weaponSystem.addWeapon('laser');
+            if (added) {
+                console.log('[TomeSystem] Laser unlocked!');
+            } else {
+                console.warn('[TomeSystem] Could not add laser (max slots?)');
+            }
+        }
+    },
+
+    unlock_rocket: {
+        id: 'unlock_rocket',
+        name: '로켓 런처 획득',
+        description: '폭발 범위 데미지 무기',
+        rarity: 'legendary',
+        icon: '🚀',
+        maxStacks: 1,
+        apply: (player, game) => {
+            if (!game.weaponSystem) return;
+            const added = game.weaponSystem.addWeapon('rocket');
+            if (added) {
+                console.log('[TomeSystem] Rocket launcher unlocked!');
+            } else {
+                console.warn('[TomeSystem] Could not add rocket (max slots?)');
+            }
+        }
+    },
+
+    unlock_smg: {
+        id: 'unlock_smg',
+        name: 'SMG 획득',
+        description: '빠른 연사 기관단총 추가',
+        rarity: 'rare',
+        icon: '🔫',
+        maxStacks: 1,
+        apply: (player, game) => {
+            if (!game.weaponSystem) return;
+            const added = game.weaponSystem.addWeapon('smg');
+            if (added) {
+                console.log('[TomeSystem] SMG unlocked!');
+            } else {
+                console.warn('[TomeSystem] Could not add SMG (max slots?)');
+            }
         }
     }
 };

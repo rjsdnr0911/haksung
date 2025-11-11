@@ -59,13 +59,62 @@ export const Config = {
     // Weapon settings
     weapons: {
         pistol: {
+            name: 'Pistol',
             damage: 15,
             fireRate: 3, // shots per second
             range: 15,
             projectileSpeed: 30,
             color: '#ffff00',
-            projectilesPerShot: 1, // Number of projectiles per shot
-            spread: 0 // Spread angle in degrees (0 = no spread)
+            projectilesPerShot: 1,
+            spread: 0,
+            icon: '🔫'
+        },
+        shotgun: {
+            name: 'Shotgun',
+            damage: 8,
+            fireRate: 1.5,
+            range: 10,
+            projectileSpeed: 25,
+            color: '#ff8800',
+            projectilesPerShot: 6,
+            spread: 25,
+            icon: '💥'
+        },
+        laser: {
+            name: 'Laser',
+            damage: 10,
+            fireRate: 5,
+            range: 20,
+            projectileSpeed: 50,
+            color: '#00ffff',
+            projectilesPerShot: 1,
+            spread: 0,
+            piercing: true, // Can hit multiple enemies
+            icon: '⚡'
+        },
+        rocket: {
+            name: 'Rocket',
+            damage: 50,
+            fireRate: 0.5,
+            range: 18,
+            projectileSpeed: 20,
+            color: '#ff0000',
+            projectilesPerShot: 1,
+            spread: 0,
+            explosive: true, // AOE damage
+            explosionRadius: 3,
+            icon: '🚀'
+        },
+        smg: {
+            name: 'SMG',
+            damage: 8,
+            fireRate: 8,
+            range: 12,
+            projectileSpeed: 35,
+            color: '#88ff00',
+            projectilesPerShot: 1,
+            spread: 5,
+            icon: '🔫'
         }
     },
 

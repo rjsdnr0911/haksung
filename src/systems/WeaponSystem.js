@@ -3,38 +3,70 @@ import { Config } from '../core/Config.js';
 export class WeaponSystem {
     constructor(game) {
         this.game = game;
-        this.currentTarget = null;
-        this.lastFireTime = 0;
+        this.maxSlots = 6;
+        this.weaponSlots = []; // Array of weapon slot objects
 
-        // Weapon stats
-        this.weaponType = 'pistol';
-        this.weapon = Config.weapons[this.weaponType];
-        this.fireInterval = 1000 / this.weapon.fireRate; // Convert to ms
+        // Add starter weapon (pistol)
+        this.addWeapon('pistol');
+    }
+
+    addWeapon(weaponType) {
+        if (this.weaponSlots.length >= this.maxSlots) {
+            console.warn('[WeaponSystem] Max weapon slots reached');
+            return false;
+        }
+
+        if (!Config.weapons[weaponType]) {
+            console.error('[WeaponSystem] Unknown weapon type:', weaponType);
+            return false;
+        }
+
+        // Create a copy of the weapon config
+        const weaponConfig = JSON.parse(JSON.stringify(Config.weapons[weaponType]));
+
+        const slot = {
+            type: weaponType,
+            weapon: weaponConfig,
+            currentTarget: null,
+            lastFireTime: 0,
+            fireInterval: 1000 / weaponConfig.fireRate
+        };
+
+        this.weaponSlots.push(slot);
+        console.log('[WeaponSystem] Added weapon:', weaponConfig.name, '- Slot', this.weaponSlots.length);
+        return true;
     }
 
     update(deltaTime) {
-        if (!this.game.player) return;
+        if (!this.game.player || this.game.enemies.length === 0) return;
 
-        // Find nearest enemy
-        this.findTarget();
+        // Update each weapon slot independently
+        for (const slot of this.weaponSlots) {
+            this.updateWeaponSlot(slot, deltaTime);
+        }
+    }
+
+    updateWeaponSlot(slot, deltaTime) {
+        // Find target for this weapon
+        this.findTarget(slot);
 
         // Auto-aim at target
-        if (this.currentTarget) {
-            this.aimAtTarget(deltaTime);
+        if (slot.currentTarget) {
+            this.aimAtTarget(slot, deltaTime);
         }
 
         // Auto-fire
-        this.tryFire();
+        this.tryFire(slot);
     }
 
-    findTarget() {
+    findTarget(slot) {
         if (!this.game.player || this.game.enemies.length === 0) {
-            this.currentTarget = null;
+            slot.currentTarget = null;
             return;
         }
 
         let nearestEnemy = null;
-        let nearestDistance = this.weapon.range;
+        let nearestDistance = slot.weapon.range;
 
         for (const enemy of this.game.enemies) {
             if (enemy.isDead) continue;
@@ -50,23 +82,26 @@ export class WeaponSystem {
             }
         }
 
-        this.currentTarget = nearestEnemy;
+        slot.currentTarget = nearestEnemy;
     }
 
-    aimAtTarget(deltaTime) {
-        if (!this.currentTarget || !this.game.player) return;
+    aimAtTarget(slot, deltaTime) {
+        if (!slot.currentTarget || !this.game.player) return;
 
         // Calculate direction to target
-        const direction = this.currentTarget.position.subtract(this.game.player.position);
+        const direction = slot.currentTarget.position.subtract(this.game.player.position);
         const targetAngle = Math.atan2(direction.x, direction.z);
 
-        // Smoothly rotate player to face target
-        const lerpFactor = Math.min(deltaTime * 10, 1);
-        this.game.player.rotation = this.lerpAngle(
-            this.game.player.rotation,
-            targetAngle,
-            lerpFactor
-        );
+        // Smoothly rotate player to face target (only for first weapon)
+        // Other weapons just shoot in their calculated direction
+        if (this.weaponSlots[0] === slot) {
+            const lerpFactor = Math.min(deltaTime * 10, 1);
+            this.game.player.rotation = this.lerpAngle(
+                this.game.player.rotation,
+                targetAngle,
+                lerpFactor
+            );
+        }
     }
 
     lerpAngle(from, to, t) {
@@ -78,7 +113,7 @@ export class WeaponSystem {
         return from + diff * t;
     }
 
-    calculatePredictiveAim(startPos, target) {
+    calculatePredictiveAim(startPos, target, projectileSpeed) {
         // Get target's current position and velocity
         const targetPos = target.position.clone();
         const targetVelocity = target.velocity || BABYLON.Vector3.Zero();
@@ -89,7 +124,6 @@ export class WeaponSystem {
         const distance = toTarget.length();
 
         // Calculate time for projectile to reach target
-        const projectileSpeed = this.weapon.projectileSpeed;
         const timeToReach = distance / projectileSpeed;
 
         // Predict where target will be
@@ -109,30 +143,32 @@ export class WeaponSystem {
         }
     }
 
-    tryFire() {
-        if (!this.currentTarget || !this.game.player) return;
+    tryFire(slot) {
+        if (!slot.currentTarget || !this.game.player) return;
 
         const now = Date.now();
-        if (now - this.lastFireTime < this.fireInterval) return;
+        if (now - slot.lastFireTime < slot.fireInterval) return;
 
-        this.fire();
-        this.lastFireTime = now;
+        this.fire(slot);
+        slot.lastFireTime = now;
     }
 
-    fire() {
-        if (!this.game.player || !this.currentTarget) return;
+    fire(slot) {
+        if (!this.game.player || !slot.currentTarget) return;
 
         const startPos = this.game.player.position.clone();
         startPos.y = 1.0; // Fixed height for shooting
 
         // Calculate predictive aim direction
-        const direction = this.calculatePredictiveAim(startPos, this.currentTarget);
-
-        console.log('[WeaponSystem] Firing from:', startPos, 'direction:', direction);
+        const direction = this.calculatePredictiveAim(
+            startPos,
+            slot.currentTarget,
+            slot.weapon.projectileSpeed
+        );
 
         // Fire multiple projectiles if multi-shot is enabled
-        const projectileCount = this.weapon.projectilesPerShot || 1;
-        const spread = this.weapon.spread || 0;
+        const projectileCount = slot.weapon.projectilesPerShot || 1;
+        const spread = slot.weapon.spread || 0;
 
         for (let i = 0; i < projectileCount; i++) {
             let projDirection = direction.clone();
@@ -154,14 +190,14 @@ export class WeaponSystem {
             }
 
             // Create projectile
-            this.createProjectile(startPos, projDirection);
+            this.createProjectile(startPos, projDirection, slot.weapon);
         }
 
         // Create muzzle flash effect
-        this.createMuzzleFlash(startPos);
+        this.createMuzzleFlash(startPos, slot.weapon.color);
     }
 
-    createProjectile(position, direction) {
+    createProjectile(position, direction, weapon) {
         // Visual projectile
         const projectile = BABYLON.MeshBuilder.CreateSphere(
             'projectile',
@@ -172,8 +208,8 @@ export class WeaponSystem {
 
         // Material
         const material = new BABYLON.StandardMaterial('projectileMat', this.game.scene);
-        material.diffuseColor = BABYLON.Color3.FromHexString(this.weapon.color);
-        material.emissiveColor = BABYLON.Color3.FromHexString(this.weapon.color);
+        material.diffuseColor = BABYLON.Color3.FromHexString(weapon.color);
+        material.emissiveColor = BABYLON.Color3.FromHexString(weapon.color);
         projectile.material = material;
 
         // Projectile data
@@ -181,17 +217,21 @@ export class WeaponSystem {
             mesh: projectile,
             position: position.clone(),
             direction: direction.clone(),
-            speed: this.weapon.projectileSpeed,
-            damage: this.weapon.damage,
-            maxDistance: this.weapon.range,
+            speed: weapon.projectileSpeed,
+            damage: weapon.damage,
+            maxDistance: weapon.range,
             distanceTraveled: 0,
-            isActive: true
+            isActive: true,
+            piercing: weapon.piercing || false,
+            explosive: weapon.explosive || false,
+            explosionRadius: weapon.explosionRadius || 0,
+            color: weapon.color
         };
 
         this.game.projectiles.push(projectileData);
     }
 
-    createMuzzleFlash(position) {
+    createMuzzleFlash(position, color) {
         const flash = BABYLON.MeshBuilder.CreateSphere(
             'flash',
             { diameter: 0.5, segments: 8 },
@@ -200,7 +240,7 @@ export class WeaponSystem {
         flash.position = position.clone();
 
         const material = new BABYLON.StandardMaterial('flashMat', this.game.scene);
-        material.emissiveColor = BABYLON.Color3.White();
+        material.emissiveColor = BABYLON.Color3.FromHexString(color);
         flash.material = material;
 
         // Fade out and dispose
@@ -237,29 +277,84 @@ export class WeaponSystem {
     }
 
     checkProjectileCollision(projectile) {
+        let hitCount = 0;
+
         for (const enemy of this.game.enemies) {
             if (enemy.isDead) continue;
 
             const distance = BABYLON.Vector3.Distance(projectile.position, enemy.position);
 
             // More generous hitbox: 2.5x enemy size for better hit detection
-            // Fast enemies (size 0.6) get ~1.5 unit hitbox radius
             const hitRadius = enemy.size * 2.5;
 
             if (distance < hitRadius) {
                 // Hit!
                 console.log('[WeaponSystem] Hit enemy! Distance:', distance, 'Hitbox radius:', hitRadius);
                 enemy.takeDamage(projectile.damage);
-                projectile.isActive = false;
+                hitCount++;
 
                 // Check if enemy died
                 if (enemy.isDead) {
                     this.onEnemyKilled(enemy);
                 }
 
-                break;
+                // Handle special projectile types
+                if (projectile.explosive) {
+                    // Create explosion at impact
+                    this.createExplosion(projectile.position, projectile.explosionRadius, projectile.damage * 0.5);
+                    projectile.isActive = false;
+                    break;
+                }
+
+                if (!projectile.piercing) {
+                    // Normal projectile stops after first hit
+                    projectile.isActive = false;
+                    break;
+                } else {
+                    // Piercing projectile continues, but reduce damage slightly
+                    projectile.damage *= 0.9;
+                }
             }
         }
+    }
+
+    createExplosion(position, radius, damage) {
+        console.log('[WeaponSystem] Explosion at', position, 'radius:', radius);
+
+        // Visual explosion effect
+        const explosion = BABYLON.MeshBuilder.CreateSphere(
+            'explosion',
+            { diameter: radius * 2, segments: 16 },
+            this.game.scene
+        );
+        explosion.position = position.clone();
+
+        const material = new BABYLON.StandardMaterial('explosionMat', this.game.scene);
+        material.emissiveColor = new BABYLON.Color3(1, 0.5, 0);
+        material.alpha = 0.7;
+        explosion.material = material;
+
+        // Damage all enemies in radius
+        for (const enemy of this.game.enemies) {
+            if (enemy.isDead) continue;
+
+            const distance = BABYLON.Vector3.Distance(position, enemy.position);
+            if (distance < radius) {
+                // Damage falloff based on distance
+                const damageFactor = 1 - (distance / radius);
+                const actualDamage = Math.floor(damage * damageFactor);
+                enemy.takeDamage(actualDamage);
+
+                if (enemy.isDead) {
+                    this.onEnemyKilled(enemy);
+                }
+            }
+        }
+
+        // Animate and remove explosion
+        setTimeout(() => {
+            explosion.dispose();
+        }, 200);
     }
 
     onEnemyKilled(enemy) {
@@ -289,6 +384,16 @@ export class WeaponSystem {
         };
 
         this.game.xpOrbs.push(orbData);
+    }
+
+    // Get a specific weapon slot for tome upgrades
+    getWeaponSlot(index = 0) {
+        return this.weaponSlots[index];
+    }
+
+    // Get all weapon slots
+    getAllWeapons() {
+        return this.weaponSlots;
     }
 
     dispose() {

@@ -56,7 +56,7 @@ export class Player {
             const result = await BABYLON.SceneLoader.ImportMeshAsync(
                 '',
                 'assets/models/characters/',
-                'character_sam.gltf',
+                'character_matt.gltf',
                 this.scene
             );
 
@@ -74,9 +74,10 @@ export class Player {
                 const rootMesh = result.meshes[0];
                 rootMesh.parent = container;
 
-                // Fix model orientation (standing upright)
-                rootMesh.rotation.x = -Math.PI / 2; // Rotate to stand up
-                rootMesh.rotation.y = 0;
+                // Fix model orientation (try different rotation)
+                // Test multiple rotation combinations to find correct orientation
+                rootMesh.rotation.x = 0;
+                rootMesh.rotation.y = Math.PI; // 180 degrees Y
                 rootMesh.rotation.z = 0;
 
                 // Position and scale
@@ -84,6 +85,8 @@ export class Player {
                 container.position.y = 0;
                 container.rotation.y = this.rotation;
                 rootMesh.scaling = new BABYLON.Vector3(0.5, 0.5, 0.5);
+
+                console.log('[Player] Model rotation:', rootMesh.rotation);
 
                 // Make all child meshes non-collidable
                 result.meshes.forEach(mesh => {

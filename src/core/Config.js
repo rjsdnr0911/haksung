@@ -2,11 +2,13 @@
 export const Config = {
     // Player settings
     player: {
-        moveSpeed: 8,
+        moveSpeed: 15, // Increased from 8 for more speed
         radius: 0.75,
         height: 1.8,
         maxHealth: 100,
-        color: '#4a9eff'
+        color: '#4a9eff',
+        jumpForce: 12, // Jump power
+        gravity: 30 // Gravity force
     },
 
     // Camera settings
@@ -20,7 +22,7 @@ export const Config = {
 
     // Map settings
     map: {
-        size: 100, // 100x100 units
+        size: 200, // 200x200 units (increased from 100)
         gridSize: 10 // Grid line spacing
     },
 
@@ -32,7 +34,7 @@ export const Config = {
             normal: {
                 health: 30,
                 damage: 10,
-                speed: 3,
+                speed: 6, // Increased from 3
                 size: 0.8,
                 color: '#ff4444',
                 xpValue: 10
@@ -40,7 +42,7 @@ export const Config = {
             fast: {
                 health: 20,
                 damage: 8,
-                speed: 5,
+                speed: 10, // Increased from 5
                 size: 0.6,
                 color: '#ffaa44',
                 xpValue: 15
@@ -48,7 +50,7 @@ export const Config = {
             tank: {
                 health: 100,
                 damage: 20,
-                speed: 2,
+                speed: 4, // Increased from 2
                 size: 1.2,
                 color: '#aa44ff',
                 xpValue: 30

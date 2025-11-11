@@ -18,6 +18,11 @@ export class Player {
         // Input
         this.moveInput = { x: 0, z: 0 };
 
+        // Jump mechanics
+        this.verticalVelocity = 0;
+        this.isGrounded = true;
+        this.groundLevel = 0; // Ground height at current position
+
         this.createMesh();
 
         console.log('[Player] Created at', position);
@@ -161,14 +166,33 @@ export class Player {
             newPos.x = Math.max(-halfMapSize, Math.min(halfMapSize, newPos.x));
             newPos.z = Math.max(-halfMapSize, Math.min(halfMapSize, newPos.z));
 
-            this.position = newPos;
+            this.position.x = newPos.x;
+            this.position.z = newPos.z;
 
             // Update rotation to face movement direction
             this.rotation = Math.atan2(movement.x, movement.z);
         }
 
+        // Apply gravity and vertical movement
+        if (!this.isGrounded) {
+            this.verticalVelocity -= Config.player.gravity * deltaTime;
+        }
+
+        // Update vertical position
+        this.position.y += this.verticalVelocity * deltaTime;
+
+        // Check ground collision
+        if (this.position.y <= this.groundLevel) {
+            this.position.y = this.groundLevel;
+            this.verticalVelocity = 0;
+            this.isGrounded = true;
+        } else {
+            this.isGrounded = false;
+        }
+
         // Update mesh position and rotation
         this.mesh.position.x = this.position.x;
+        this.mesh.position.y = this.position.y;
         this.mesh.position.z = this.position.z;
         this.mesh.rotation.y = this.rotation;
     }
@@ -176,6 +200,18 @@ export class Player {
     setMoveInput(x, z) {
         this.moveInput.x = x;
         this.moveInput.z = z;
+    }
+
+    jump() {
+        if (this.isGrounded) {
+            this.verticalVelocity = Config.player.jumpForce;
+            this.isGrounded = false;
+            console.log('[Player] Jump!');
+        }
+    }
+
+    setGroundLevel(height) {
+        this.groundLevel = height;
     }
 
     takeDamage(amount) {

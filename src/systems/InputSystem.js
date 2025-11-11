@@ -23,6 +23,12 @@ export class InputSystem {
             case 'escape':
                 this.game.isPaused ? this.game.resume() : this.game.pause();
                 break;
+            case ' ': // Spacebar
+                if (this.game.player) {
+                    this.game.player.jump();
+                }
+                e.preventDefault(); // Prevent page scroll
+                break;
         }
     }
 

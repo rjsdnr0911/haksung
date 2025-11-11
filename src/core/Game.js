@@ -131,7 +131,105 @@ export class Game {
         ground.material = groundMat;
         ground.checkCollisions = false;
 
+        // Create terrain features
+        this.createTerrainFeatures(mapSize);
+
         console.log('[Game] Map created:', mapSize + 'x' + mapSize);
+    }
+
+    createTerrainFeatures(mapSize) {
+        const halfMap = mapSize / 2;
+
+        // Material for hills
+        const hillMat = new BABYLON.StandardMaterial('hillMat', this.scene);
+        hillMat.diffuseColor = new BABYLON.Color3(0.3, 0.5, 0.2); // Green
+        hillMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+
+        // Material for rocks
+        const rockMat = new BABYLON.StandardMaterial('rockMat', this.scene);
+        rockMat.diffuseColor = new BABYLON.Color3(0.4, 0.4, 0.4); // Gray
+        rockMat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+
+        // Create several hills (cylindrical mounds)
+        const hillCount = 15;
+        for (let i = 0; i < hillCount; i++) {
+            const x = (Math.random() - 0.5) * mapSize * 0.8;
+            const z = (Math.random() - 0.5) * mapSize * 0.8;
+            const radius = 8 + Math.random() * 12;
+            const height = 3 + Math.random() * 5;
+
+            const hill = BABYLON.MeshBuilder.CreateCylinder(
+                `hill_${i}`,
+                {
+                    diameter: radius * 2,
+                    height: height,
+                    tessellation: 16
+                },
+                this.scene
+            );
+            hill.position = new BABYLON.Vector3(x, height / 2, z);
+            hill.material = hillMat;
+            hill.checkCollisions = true;
+        }
+
+        // Create rocks/boulders (boxes and spheres)
+        const rockCount = 25;
+        for (let i = 0; i < rockCount; i++) {
+            const x = (Math.random() - 0.5) * mapSize * 0.85;
+            const z = (Math.random() - 0.5) * mapSize * 0.85;
+            const size = 2 + Math.random() * 4;
+
+            let rock;
+            if (Math.random() > 0.5) {
+                // Sphere rocks
+                rock = BABYLON.MeshBuilder.CreateSphere(
+                    `rock_sphere_${i}`,
+                    { diameter: size, segments: 8 },
+                    this.scene
+                );
+            } else {
+                // Box rocks
+                rock = BABYLON.MeshBuilder.CreateBox(
+                    `rock_box_${i}`,
+                    { size: size },
+                    this.scene
+                );
+                rock.rotation.y = Math.random() * Math.PI;
+            }
+
+            rock.position = new BABYLON.Vector3(x, size / 2, z);
+            rock.material = rockMat;
+            rock.checkCollisions = true;
+        }
+
+        // Create tall mountain-like structures
+        const mountainCount = 5;
+        for (let i = 0; i < mountainCount; i++) {
+            const x = (Math.random() - 0.5) * mapSize * 0.7;
+            const z = (Math.random() - 0.5) * mapSize * 0.7;
+            const baseRadius = 15 + Math.random() * 10;
+            const height = 10 + Math.random() * 15;
+
+            const mountain = BABYLON.MeshBuilder.CreateCylinder(
+                `mountain_${i}`,
+                {
+                    diameterTop: baseRadius * 0.3,
+                    diameterBottom: baseRadius * 2,
+                    height: height,
+                    tessellation: 12
+                },
+                this.scene
+            );
+            mountain.position = new BABYLON.Vector3(x, height / 2, z);
+
+            const mountainMat = new BABYLON.StandardMaterial(`mountainMat_${i}`, this.scene);
+            mountainMat.diffuseColor = new BABYLON.Color3(0.5, 0.4, 0.3); // Brown
+            mountainMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+            mountain.material = mountainMat;
+            mountain.checkCollisions = true;
+        }
+
+        console.log('[Game] Terrain features created:', hillCount, 'hills,', rockCount, 'rocks,', mountainCount, 'mountains');
     }
 
     createGridTexture() {

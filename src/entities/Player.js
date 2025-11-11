@@ -1,8 +1,9 @@
 import { Config } from '../core/Config.js';
 
 export class Player {
-    constructor(scene, position = BABYLON.Vector3.Zero()) {
+    constructor(scene, position = BABYLON.Vector3.Zero(), camera = null) {
         this.scene = scene;
+        this.camera = camera;
         this.position = position.clone();
         this.rotation = 0;
         this.velocity = BABYLON.Vector3.Zero();
@@ -69,11 +70,20 @@ export class Player {
         // Update position based on input
         if (this.moveInput.x !== 0 || this.moveInput.z !== 0) {
             const moveSpeed = Config.player.moveSpeed;
-            const movement = new BABYLON.Vector3(
-                this.moveInput.x,
-                0,
-                this.moveInput.z
-            );
+
+            // Get camera rotation (alpha is horizontal rotation)
+            const cameraAngle = this.camera ? this.camera.alpha : 0;
+
+            // Calculate movement direction relative to camera
+            // W/S = forward/backward, A/D = left/right relative to camera view
+            const forward = this.moveInput.z; // W/S
+            const right = this.moveInput.x;   // D/A
+
+            // Convert input to world coordinates based on camera angle
+            const worldX = Math.sin(cameraAngle) * forward + Math.cos(cameraAngle) * right;
+            const worldZ = Math.cos(cameraAngle) * forward - Math.sin(cameraAngle) * right;
+
+            const movement = new BABYLON.Vector3(worldX, 0, worldZ);
 
             // Normalize diagonal movement
             if (movement.length() > 0) {

@@ -176,8 +176,8 @@ export class Game {
         this.isRunning = true;
         this.isPaused = false;
 
-        // Create player
-        this.player = new Player(this.scene, BABYLON.Vector3.Zero());
+        // Create player (pass camera for proper movement direction)
+        this.player = new Player(this.scene, BABYLON.Vector3.Zero(), this.camera);
 
         // Initialize systems
         this.inputSystem = new InputSystem(this);

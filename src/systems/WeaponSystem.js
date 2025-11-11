@@ -78,6 +78,37 @@ export class WeaponSystem {
         return from + diff * t;
     }
 
+    calculatePredictiveAim(startPos, target) {
+        // Get target's current position and velocity
+        const targetPos = target.position.clone();
+        const targetVelocity = target.velocity || BABYLON.Vector3.Zero();
+
+        // Calculate distance to target
+        const toTarget = targetPos.subtract(startPos);
+        toTarget.y = 0; // Keep aim on XZ plane
+        const distance = toTarget.length();
+
+        // Calculate time for projectile to reach target
+        const projectileSpeed = this.weapon.projectileSpeed;
+        const timeToReach = distance / projectileSpeed;
+
+        // Predict where target will be
+        const predictedMovement = targetVelocity.scale(timeToReach);
+        const predictedPos = targetPos.add(predictedMovement);
+
+        // Calculate direction to predicted position
+        const direction = predictedPos.subtract(startPos);
+        direction.y = 0; // Keep on XZ plane
+
+        if (direction.length() > 0) {
+            direction.normalize();
+            return direction;
+        } else {
+            // Fallback to direct aim
+            return this.game.player.getForwardDirection();
+        }
+    }
+
     tryFire() {
         if (!this.currentTarget || !this.game.player) return;
 
@@ -94,7 +125,8 @@ export class WeaponSystem {
         const startPos = this.game.player.position.clone();
         startPos.y = 1.0; // Fixed height for shooting
 
-        const direction = this.game.player.getForwardDirection();
+        // Calculate predictive aim direction
+        const direction = this.calculatePredictiveAim(startPos, this.currentTarget);
 
         console.log('[WeaponSystem] Firing from:', startPos, 'direction:', direction);
 
@@ -210,9 +242,13 @@ export class WeaponSystem {
 
             const distance = BABYLON.Vector3.Distance(projectile.position, enemy.position);
 
-            if (distance < enemy.size * 1.5) { // Slightly larger hitbox
+            // More generous hitbox: 2.5x enemy size for better hit detection
+            // Fast enemies (size 0.6) get ~1.5 unit hitbox radius
+            const hitRadius = enemy.size * 2.5;
+
+            if (distance < hitRadius) {
                 // Hit!
-                console.log('[WeaponSystem] Hit enemy! Distance:', distance, 'Enemy size:', enemy.size);
+                console.log('[WeaponSystem] Hit enemy! Distance:', distance, 'Hitbox radius:', hitRadius);
                 enemy.takeDamage(projectile.damage);
                 projectile.isActive = false;
 

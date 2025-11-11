@@ -24,7 +24,7 @@ export class Player {
     }
 
     createMesh() {
-        // Main body (cylinder)
+        // Create temporary placeholder while model loads
         this.mesh = BABYLON.MeshBuilder.CreateCylinder(
             'player',
             {
@@ -34,7 +34,7 @@ export class Player {
             },
             this.scene
         );
-        this.mesh.position = this.position;
+        this.mesh.position = this.position.clone();
         this.mesh.position.y = Config.player.height / 2;
 
         // Material
@@ -43,27 +43,52 @@ export class Player {
         material.emissiveColor = BABYLON.Color3.FromHexString(Config.player.color).scale(0.2);
         this.mesh.material = material;
 
-        // Direction indicator (cone on top)
-        this.directionCone = BABYLON.MeshBuilder.CreateCylinder(
-            'dirCone',
-            {
-                diameterTop: 0,
-                diameterBottom: Config.player.radius * 1.2,
-                height: 0.6,
-                tessellation: 8
-            },
-            this.scene
-        );
-        this.directionCone.parent = this.mesh;
-        this.directionCone.position.y = Config.player.height / 2 + 0.3;
-        this.directionCone.rotation.x = 0;
-
-        const coneMat = new BABYLON.StandardMaterial('coneMat', this.scene);
-        coneMat.diffuseColor = BABYLON.Color3.White();
-        coneMat.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-        this.directionCone.material = coneMat;
-
         this.mesh.checkCollisions = false;
+
+        // Load 3D model
+        this.loadModel();
+    }
+
+    async loadModel() {
+        try {
+            console.log('[Player] Loading 3D model...');
+
+            const result = await BABYLON.SceneLoader.ImportMeshAsync(
+                '',
+                'assets/models/characters/',
+                'character_sam.gltf',
+                this.scene
+            );
+
+            if (result.meshes.length > 0) {
+                console.log('[Player] Model loaded successfully');
+
+                // Dispose placeholder
+                if (this.mesh) {
+                    this.mesh.dispose();
+                }
+
+                // Get root mesh
+                const rootMesh = result.meshes[0];
+                this.mesh = rootMesh;
+
+                // Position and scale
+                this.mesh.position = this.position.clone();
+                this.mesh.position.y = 0;
+                this.mesh.scaling = new BABYLON.Vector3(0.5, 0.5, 0.5);
+                this.mesh.rotation.y = this.rotation;
+
+                // Make all child meshes non-collidable
+                result.meshes.forEach(mesh => {
+                    mesh.checkCollisions = false;
+                });
+
+                console.log('[Player] 3D model applied');
+            }
+        } catch (error) {
+            console.warn('[Player] Failed to load 3D model, using placeholder:', error);
+            // Keep using placeholder cylinder
+        }
     }
 
     update(deltaTime) {

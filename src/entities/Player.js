@@ -71,19 +71,32 @@ export class Player {
         if (this.moveInput.x !== 0 || this.moveInput.z !== 0) {
             const moveSpeed = Config.player.moveSpeed;
 
-            // Get camera rotation (alpha is horizontal rotation)
-            const cameraAngle = this.camera ? this.camera.alpha : 0;
+            let movement;
 
-            // Calculate movement direction relative to camera
-            // W/S = forward/backward, A/D = left/right relative to camera view
-            const forward = this.moveInput.z; // W/S
-            const right = this.moveInput.x;   // D/A
+            if (this.camera) {
+                // Get camera's forward direction (projected on XZ plane)
+                const cameraForward = this.camera.getDirection(BABYLON.Axis.Z);
+                cameraForward.y = 0; // Flatten to XZ plane
+                cameraForward.normalize();
 
-            // Convert input to world coordinates based on camera angle
-            const worldX = Math.sin(cameraAngle) * forward + Math.cos(cameraAngle) * right;
-            const worldZ = Math.cos(cameraAngle) * forward - Math.sin(cameraAngle) * right;
+                // Get camera's right direction (projected on XZ plane)
+                const cameraRight = this.camera.getDirection(BABYLON.Axis.X);
+                cameraRight.y = 0; // Flatten to XZ plane
+                cameraRight.normalize();
 
-            const movement = new BABYLON.Vector3(worldX, 0, worldZ);
+                // Calculate movement based on input and camera orientation
+                // W/S controls forward/backward relative to camera
+                // A/D controls left/right relative to camera
+                movement = cameraForward.scale(this.moveInput.z)
+                    .add(cameraRight.scale(this.moveInput.x));
+            } else {
+                // Fallback: world-space movement
+                movement = new BABYLON.Vector3(
+                    this.moveInput.x,
+                    0,
+                    this.moveInput.z
+                );
+            }
 
             // Normalize diagonal movement
             if (movement.length() > 0) {

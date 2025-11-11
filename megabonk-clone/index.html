@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Megabonk Clone - Top-Down 3D Roguelike</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+</head>
+<body>
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Main Menu -->
+    <div id="menu">
+        <div class="menu-content">
+            <h1>MEGABONK CLONE</h1>
+            <p class="subtitle">Top-Down 3D Roguelike Shooter</p>
+            <div id="loading">Loading...</div>
+            <button id="startButton" style="display: none;">START GAME</button>
+            <div class="instructions">
+                <h3>Controls:</h3>
+                <p><strong>WASD</strong> - Move</p>
+                <p><strong>Auto-aim</strong> - Automatic targeting</p>
+                <p><strong>Auto-fire</strong> - Automatic shooting</p>
+                <p><strong>ESC</strong> - Pause</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" style="display: none;">
+        <!-- Top Bar -->
+        <div class="hud-top">
+            <div class="stat-bar">
+                <div class="stat-label">HP</div>
+                <div class="stat-value" id="healthBar">
+                    <div class="stat-fill" id="healthFill" style="width: 100%;"></div>
+                </div>
+                <div class="stat-text" id="healthText">100/100</div>
+            </div>
+
+            <div class="stat-bar">
+                <div class="stat-label">XP</div>
+                <div class="stat-value" id="xpBar">
+                    <div class="stat-fill xp-fill" id="xpFill" style="width: 0%;"></div>
+                </div>
+                <div class="stat-text" id="xpText">0/50</div>
+            </div>
+
+            <div class="level-display">
+                Level <span id="levelText">1</span>
+            </div>
+        </div>
+
+        <!-- Bottom Info -->
+        <div class="hud-bottom">
+            <div class="info-item">Enemies: <span id="enemyCount">0</span></div>
+            <div class="info-item">Time: <span id="timeText">0:00</span></div>
+        </div>
+    </div>
+
+    <!-- Pause Menu -->
+    <div id="pauseMenu" style="display: none;">
+        <div class="pause-content">
+            <h2>PAUSED</h2>
+            <button id="resumeButton">Resume (ESC)</button>
+        </div>
+    </div>
+
+    <script type="module" src="src/main.js"></script>
+</body>
+</html>

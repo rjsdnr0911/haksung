@@ -24,9 +24,13 @@ export class Player {
     }
 
     createMesh() {
-        // Create temporary placeholder while model loads
-        this.mesh = BABYLON.MeshBuilder.CreateCylinder(
-            'player',
+        // Create parent container
+        const container = new BABYLON.TransformNode('playerContainer', this.scene);
+        this.mesh = container;
+
+        // Main body (capsule-like cylinder)
+        const body = BABYLON.MeshBuilder.CreateCylinder(
+            'playerBody',
             {
                 diameter: Config.player.radius * 2,
                 height: Config.player.height,
@@ -34,76 +38,82 @@ export class Player {
             },
             this.scene
         );
-        this.mesh.position = this.position.clone();
-        this.mesh.position.y = Config.player.height / 2;
+        body.parent = container;
+        body.position.y = Config.player.height / 2;
 
         // Material
-        const material = new BABYLON.StandardMaterial('playerMat', this.scene);
-        material.diffuseColor = BABYLON.Color3.FromHexString(Config.player.color);
-        material.emissiveColor = BABYLON.Color3.FromHexString(Config.player.color).scale(0.2);
-        this.mesh.material = material;
+        const bodyMat = new BABYLON.StandardMaterial('playerBodyMat', this.scene);
+        bodyMat.diffuseColor = BABYLON.Color3.FromHexString(Config.player.color);
+        bodyMat.emissiveColor = BABYLON.Color3.FromHexString(Config.player.color).scale(0.3);
+        body.material = bodyMat;
 
-        this.mesh.checkCollisions = false;
+        // Head (sphere on top)
+        const head = BABYLON.MeshBuilder.CreateSphere(
+            'playerHead',
+            { diameter: Config.player.radius * 1.2, segments: 12 },
+            this.scene
+        );
+        head.parent = container;
+        head.position.y = Config.player.height + Config.player.radius * 0.6;
+        const headMat = new BABYLON.StandardMaterial('playerHeadMat', this.scene);
+        headMat.diffuseColor = BABYLON.Color3.FromHexString('#ffcc88'); // Skin tone
+        headMat.emissiveColor = new BABYLON.Color3(0.2, 0.15, 0.1);
+        head.material = headMat;
 
-        // Load 3D model
-        this.loadModel();
-    }
+        // Direction indicator (cone/arrow)
+        const arrow = BABYLON.MeshBuilder.CreateCylinder(
+            'dirArrow',
+            {
+                diameterTop: 0,
+                diameterBottom: Config.player.radius * 0.8,
+                height: 0.8,
+                tessellation: 8
+            },
+            this.scene
+        );
+        arrow.parent = container;
+        arrow.position.y = Config.player.height / 2;
+        arrow.position.z = Config.player.radius * 1.2; // In front
+        arrow.rotation.x = Math.PI / 2; // Point forward
+        const arrowMat = new BABYLON.StandardMaterial('arrowMat', this.scene);
+        arrowMat.diffuseColor = BABYLON.Color3.White();
+        arrowMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+        arrow.material = arrowMat;
 
-    async loadModel() {
-        try {
-            console.log('[Player] Loading 3D model...');
+        // Arms (simple boxes)
+        const armWidth = 0.15;
+        const armLength = 0.6;
 
-            const result = await BABYLON.SceneLoader.ImportMeshAsync(
-                '',
-                'assets/models/characters/',
-                'character_matt.gltf',
-                this.scene
-            );
+        // Left arm
+        const leftArm = BABYLON.MeshBuilder.CreateBox(
+            'leftArm',
+            { width: armWidth, height: armLength, depth: armWidth },
+            this.scene
+        );
+        leftArm.parent = container;
+        leftArm.position.x = -Config.player.radius * 0.9;
+        leftArm.position.y = Config.player.height * 0.7;
+        leftArm.material = bodyMat;
 
-            if (result.meshes.length > 0) {
-                console.log('[Player] Model loaded successfully');
+        // Right arm
+        const rightArm = BABYLON.MeshBuilder.CreateBox(
+            'rightArm',
+            { width: armWidth, height: armLength, depth: armWidth },
+            this.scene
+        );
+        rightArm.parent = container;
+        rightArm.position.x = Config.player.radius * 0.9;
+        rightArm.position.y = Config.player.height * 0.7;
+        rightArm.material = bodyMat;
 
-                // Store old placeholder
-                const oldMesh = this.mesh;
+        // Position container
+        container.position = this.position.clone();
+        container.position.y = 0;
+        container.rotation.y = this.rotation;
 
-                // Create parent container for proper rotation
-                const container = new BABYLON.TransformNode('playerContainer', this.scene);
-                this.mesh = container;
+        container.checkCollisions = false;
 
-                // Get root mesh and parent it to container
-                const rootMesh = result.meshes[0];
-                rootMesh.parent = container;
-
-                // Fix model orientation (try different rotation)
-                // Test multiple rotation combinations to find correct orientation
-                rootMesh.rotation.x = 0;
-                rootMesh.rotation.y = Math.PI; // 180 degrees Y
-                rootMesh.rotation.z = 0;
-
-                // Position and scale
-                container.position = this.position.clone();
-                container.position.y = 0;
-                container.rotation.y = this.rotation;
-                rootMesh.scaling = new BABYLON.Vector3(0.5, 0.5, 0.5);
-
-                console.log('[Player] Model rotation:', rootMesh.rotation);
-
-                // Make all child meshes non-collidable
-                result.meshes.forEach(mesh => {
-                    mesh.checkCollisions = false;
-                });
-
-                // Dispose old placeholder
-                if (oldMesh) {
-                    oldMesh.dispose();
-                }
-
-                console.log('[Player] 3D model applied and standing upright');
-            }
-        } catch (error) {
-            console.warn('[Player] Failed to load 3D model, using placeholder:', error);
-            // Keep using placeholder cylinder
-        }
+        console.log('[Player] Procedural character created');
     }
 
     update(deltaTime) {

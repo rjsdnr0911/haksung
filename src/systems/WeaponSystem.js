@@ -92,9 +92,11 @@ export class WeaponSystem {
         if (!this.game.player || !this.currentTarget) return;
 
         const startPos = this.game.player.position.clone();
-        startPos.y = Config.player.height / 2;
+        startPos.y = 1.0; // Fixed height for shooting
 
         const direction = this.game.player.getForwardDirection();
+
+        console.log('[WeaponSystem] Firing from:', startPos, 'direction:', direction);
 
         // Create projectile
         this.createProjectile(startPos, direction);
@@ -184,8 +186,9 @@ export class WeaponSystem {
 
             const distance = BABYLON.Vector3.Distance(projectile.position, enemy.position);
 
-            if (distance < enemy.size) {
+            if (distance < enemy.size * 1.5) { // Slightly larger hitbox
                 // Hit!
+                console.log('[WeaponSystem] Hit enemy! Distance:', distance, 'Enemy size:', enemy.size);
                 enemy.takeDamage(projectile.damage);
                 projectile.isActive = false;
 

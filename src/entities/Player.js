@@ -63,27 +63,39 @@ export class Player {
             if (result.meshes.length > 0) {
                 console.log('[Player] Model loaded successfully');
 
-                // Dispose placeholder
-                if (this.mesh) {
-                    this.mesh.dispose();
-                }
+                // Store old placeholder
+                const oldMesh = this.mesh;
 
-                // Get root mesh
+                // Create parent container for proper rotation
+                const container = new BABYLON.TransformNode('playerContainer', this.scene);
+                this.mesh = container;
+
+                // Get root mesh and parent it to container
                 const rootMesh = result.meshes[0];
-                this.mesh = rootMesh;
+                rootMesh.parent = container;
+
+                // Fix model orientation (standing upright)
+                rootMesh.rotation.x = -Math.PI / 2; // Rotate to stand up
+                rootMesh.rotation.y = 0;
+                rootMesh.rotation.z = 0;
 
                 // Position and scale
-                this.mesh.position = this.position.clone();
-                this.mesh.position.y = 0;
-                this.mesh.scaling = new BABYLON.Vector3(0.5, 0.5, 0.5);
-                this.mesh.rotation.y = this.rotation;
+                container.position = this.position.clone();
+                container.position.y = 0;
+                container.rotation.y = this.rotation;
+                rootMesh.scaling = new BABYLON.Vector3(0.5, 0.5, 0.5);
 
                 // Make all child meshes non-collidable
                 result.meshes.forEach(mesh => {
                     mesh.checkCollisions = false;
                 });
 
-                console.log('[Player] 3D model applied');
+                // Dispose old placeholder
+                if (oldMesh) {
+                    oldMesh.dispose();
+                }
+
+                console.log('[Player] 3D model applied and standing upright');
             }
         } catch (error) {
             console.warn('[Player] Failed to load 3D model, using placeholder:', error);

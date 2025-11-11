@@ -98,8 +98,32 @@ export class WeaponSystem {
 
         console.log('[WeaponSystem] Firing from:', startPos, 'direction:', direction);
 
-        // Create projectile
-        this.createProjectile(startPos, direction);
+        // Fire multiple projectiles if multi-shot is enabled
+        const projectileCount = this.weapon.projectilesPerShot || 1;
+        const spread = this.weapon.spread || 0;
+
+        for (let i = 0; i < projectileCount; i++) {
+            let projDirection = direction.clone();
+
+            // Apply spread if multiple projectiles
+            if (projectileCount > 1 && spread > 0) {
+                // Calculate spread offset for this projectile
+                const spreadRad = (spread * Math.PI / 180); // Convert degrees to radians
+                const offset = (i - (projectileCount - 1) / 2) * (spreadRad / (projectileCount - 1));
+
+                // Rotate direction around Y axis
+                const cos = Math.cos(offset);
+                const sin = Math.sin(offset);
+                projDirection = new BABYLON.Vector3(
+                    direction.x * cos - direction.z * sin,
+                    direction.y,
+                    direction.x * sin + direction.z * cos
+                );
+            }
+
+            // Create projectile
+            this.createProjectile(startPos, projDirection);
+        }
 
         // Create muzzle flash effect
         this.createMuzzleFlash(startPos);

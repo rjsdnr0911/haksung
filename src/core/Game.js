@@ -3,6 +3,7 @@ import { Player } from '../entities/Player.js';
 import { InputSystem } from '../systems/InputSystem.js';
 import { SpawnSystem } from '../systems/SpawnSystem.js';
 import { WeaponSystem } from '../systems/WeaponSystem.js';
+import { TomeSystem } from '../systems/TomeSystem.js';
 
 export class Game {
     constructor(canvas) {
@@ -27,6 +28,20 @@ export class Game {
         this.inputSystem = null;
         this.spawnSystem = null;
         this.weaponSystem = null;
+        this.tomeSystem = null;
+
+        // UI elements
+        this.levelUpMenu = null;
+        this.hudElements = {
+            healthFill: null,
+            healthText: null,
+            xpFill: null,
+            xpText: null,
+            levelText: null,
+            enemyCount: null,
+            timeText: null
+        };
+        this.startTime = 0;
     }
 
     async init() {
@@ -179,10 +194,29 @@ export class Game {
         // Create player (pass camera for proper movement direction)
         this.player = new Player(this.scene, BABYLON.Vector3.Zero(), this.camera);
 
+        // Setup level up callback
+        this.player.onLevelUp = () => {
+            this.showLevelUpUI();
+        };
+
         // Initialize systems
         this.inputSystem = new InputSystem(this);
         this.spawnSystem = new SpawnSystem(this);
         this.weaponSystem = new WeaponSystem(this);
+        this.tomeSystem = new TomeSystem(this);
+
+        // Get UI elements
+        this.levelUpMenu = document.getElementById('levelUpMenu');
+        this.hudElements.healthFill = document.getElementById('healthFill');
+        this.hudElements.healthText = document.getElementById('healthText');
+        this.hudElements.xpFill = document.getElementById('xpFill');
+        this.hudElements.xpText = document.getElementById('xpText');
+        this.hudElements.levelText = document.getElementById('levelText');
+        this.hudElements.enemyCount = document.getElementById('enemyCount');
+        this.hudElements.timeText = document.getElementById('timeText');
+
+        // Record start time
+        this.startTime = Date.now();
 
         // Start render loop
         this.engine.runRenderLoop(() => {
@@ -198,6 +232,63 @@ export class Game {
         });
 
         console.log('[Game] Game started');
+    }
+
+    showLevelUpUI() {
+        console.log('[Game] Showing level up UI');
+
+        // Pause game
+        this.isPaused = true;
+
+        // Get 3 random tomes
+        const tomes = this.tomeSystem.getRandomTomes(3);
+
+        if (tomes.length === 0) {
+            console.warn('[Game] No tomes available, resuming game');
+            this.isPaused = false;
+            return;
+        }
+
+        // Create tome cards
+        const tomeCardsContainer = document.getElementById('tomeCards');
+        tomeCardsContainer.innerHTML = ''; // Clear previous cards
+
+        tomes.forEach(tome => {
+            const card = document.createElement('div');
+            card.className = `tome-card ${tome.rarity}`;
+            card.innerHTML = `
+                <div class="tome-rarity ${tome.rarity}">${tome.rarity}</div>
+                <div class="tome-icon">${tome.icon}</div>
+                <div class="tome-name">${tome.name}</div>
+                <div class="tome-description">${tome.description}</div>
+            `;
+
+            // Add click handler
+            card.addEventListener('click', () => {
+                this.selectTome(tome);
+            });
+
+            tomeCardsContainer.appendChild(card);
+        });
+
+        // Show menu
+        this.levelUpMenu.style.display = 'flex';
+    }
+
+    selectTome(tome) {
+        console.log('[Game] Tome selected:', tome.name);
+
+        // Apply tome
+        this.tomeSystem.applyTome(tome);
+
+        // Hide menu
+        this.levelUpMenu.style.display = 'none';
+
+        // Resume game
+        this.isPaused = false;
+        this.lastTime = performance.now();
+
+        console.log('[Game] Game resumed');
     }
 
     update() {
@@ -216,6 +307,7 @@ export class Game {
         this.updateProjectiles();
         this.updateXPOrbs();
         this.updateCamera();
+        this.updateHUD();
 
         // Clean up dead entities
         this.cleanupEntities();
@@ -295,6 +387,46 @@ export class Game {
             targetPos,
             Config.camera.smoothing
         );
+    }
+
+    updateHUD() {
+        if (!this.player) return;
+
+        // Update health
+        const healthPercent = (this.player.health / this.player.maxHealth) * 100;
+        if (this.hudElements.healthFill) {
+            this.hudElements.healthFill.style.width = healthPercent + '%';
+        }
+        if (this.hudElements.healthText) {
+            this.hudElements.healthText.textContent = `${Math.floor(this.player.health)}/${this.player.maxHealth}`;
+        }
+
+        // Update XP
+        const xpPercent = (this.player.xp / this.player.xpToNextLevel) * 100;
+        if (this.hudElements.xpFill) {
+            this.hudElements.xpFill.style.width = xpPercent + '%';
+        }
+        if (this.hudElements.xpText) {
+            this.hudElements.xpText.textContent = `${Math.floor(this.player.xp)}/${this.player.xpToNextLevel}`;
+        }
+
+        // Update level
+        if (this.hudElements.levelText) {
+            this.hudElements.levelText.textContent = this.player.level;
+        }
+
+        // Update enemy count
+        if (this.hudElements.enemyCount) {
+            this.hudElements.enemyCount.textContent = this.enemies.length;
+        }
+
+        // Update time
+        if (this.hudElements.timeText) {
+            const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            this.hudElements.timeText.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
     }
 
     pause() {

@@ -63,7 +63,9 @@ export const Config = {
             fireRate: 3, // shots per second
             range: 15,
             projectileSpeed: 30,
-            color: '#ffff00'
+            color: '#ffff00',
+            projectilesPerShot: 1, // Number of projectiles per shot
+            spread: 0 // Spread angle in degrees (0 = no spread)
         }
     },
 

@@ -24,6 +24,9 @@ export class Enemy {
         // Movement tracking for predictive aiming
         this.velocity = BABYLON.Vector3.Zero();
 
+        // Ground height for terrain following
+        this.groundHeight = 0;
+
         this.createMesh();
     }
 
@@ -85,8 +88,12 @@ export class Enemy {
                 // Move towards player
                 this.position = this.position.add(movement);
 
+                // Update ground height at current position
+                this.updateGroundHeight();
+
                 // Update mesh position
                 this.mesh.position.x = this.position.x;
+                this.mesh.position.y = this.groundHeight + this.size;
                 this.mesh.position.z = this.position.z;
 
                 // Rotate to face player
@@ -101,12 +108,43 @@ export class Enemy {
             if (distance < this.size + Config.player.radius) {
                 this.attackPlayer();
             }
+        } else {
+            // Update ground height even when not moving
+            this.updateGroundHeight();
+            this.mesh.position.y = this.groundHeight + this.size;
         }
 
         // Slight bobbing animation
         const bobAmount = 0.1;
         const bobSpeed = 3;
-        this.mesh.position.y = this.size + Math.sin(Date.now() / 1000 * bobSpeed) * bobAmount;
+        const bob = Math.sin(Date.now() / 1000 * bobSpeed) * bobAmount;
+        this.mesh.position.y += bob;
+    }
+
+    updateGroundHeight() {
+        // Cast ray downward from enemy position to detect terrain
+        const rayOrigin = new BABYLON.Vector3(
+            this.position.x,
+            this.position.y + 50,
+            this.position.z
+        );
+        const rayDirection = new BABYLON.Vector3(0, -1, 0);
+        const rayLength = 100;
+
+        const ray = new BABYLON.Ray(rayOrigin, rayDirection, rayLength);
+        const pickInfo = this.scene.pickWithRay(ray, (mesh) => {
+            // Only pick terrain meshes
+            return mesh.name.startsWith('hill_') ||
+                   mesh.name.startsWith('rock_') ||
+                   mesh.name.startsWith('mountain_') ||
+                   mesh.name === 'ground';
+        });
+
+        if (pickInfo && pickInfo.hit && pickInfo.pickedPoint) {
+            this.groundHeight = pickInfo.pickedPoint.y;
+        } else {
+            this.groundHeight = 0;
+        }
     }
 
     attackPlayer() {

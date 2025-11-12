@@ -173,6 +173,9 @@ export class Player {
             this.rotation = Math.atan2(movement.x, movement.z);
         }
 
+        // Detect ground height at current position using raycast
+        this.updateGroundHeight();
+
         // Apply gravity and vertical movement
         if (!this.isGrounded) {
             this.verticalVelocity -= Config.player.gravity * deltaTime;
@@ -195,6 +198,34 @@ export class Player {
         this.mesh.position.y = this.position.y;
         this.mesh.position.z = this.position.z;
         this.mesh.rotation.y = this.rotation;
+    }
+
+    updateGroundHeight() {
+        // Cast ray downward from player position to detect terrain
+        const rayOrigin = new BABYLON.Vector3(
+            this.position.x,
+            this.position.y + 50, // Start ray from above player
+            this.position.z
+        );
+        const rayDirection = new BABYLON.Vector3(0, -1, 0); // Downward
+        const rayLength = 100;
+
+        const ray = new BABYLON.Ray(rayOrigin, rayDirection, rayLength);
+        const pickInfo = this.scene.pickWithRay(ray, (mesh) => {
+            // Only pick terrain meshes (hills, rocks, mountains, ground)
+            return mesh.name.startsWith('hill_') ||
+                   mesh.name.startsWith('rock_') ||
+                   mesh.name.startsWith('mountain_') ||
+                   mesh.name === 'ground';
+        });
+
+        if (pickInfo && pickInfo.hit && pickInfo.pickedPoint) {
+            // Set ground level to the picked point's Y coordinate
+            this.groundLevel = pickInfo.pickedPoint.y;
+        } else {
+            // Fallback to default ground level
+            this.groundLevel = 0;
+        }
     }
 
     setMoveInput(x, z) {

@@ -290,9 +290,14 @@ export class Player {
         console.log('[Player] Level up callback - override this');
     }
 
+    onDeath() {
+        // Override this in game to handle death
+        console.log('[Player] Death callback - override this');
+    }
+
     die() {
         console.log('[Player] Died');
-        // Trigger game over
+        this.onDeath();
     }
 
     getForwardDirection() {

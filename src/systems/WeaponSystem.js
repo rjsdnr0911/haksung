@@ -358,6 +358,11 @@ export class WeaponSystem {
     onEnemyKilled(enemy) {
         // Spawn XP orb at enemy position
         this.spawnXPOrb(enemy.position, enemy.xpValue);
+
+        // Notify game (for meta-progression tracking)
+        if (this.game.onEnemyKilled) {
+            this.game.onEnemyKilled(enemy);
+        }
     }
 
     spawnXPOrb(position, xpValue) {

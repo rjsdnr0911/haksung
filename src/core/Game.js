@@ -5,6 +5,7 @@ import { InputSystem } from '../systems/InputSystem.js';
 import { SpawnSystem } from '../systems/SpawnSystem.js';
 import { WeaponSystem } from '../systems/WeaponSystem.js';
 import { TomeSystem } from '../systems/TomeSystem.js';
+import { MetaProgressionSystem } from '../systems/MetaProgressionSystem.js';
 
 export class Game {
     constructor(canvas) {
@@ -35,6 +36,7 @@ export class Game {
         this.spawnSystem = null;
         this.weaponSystem = null;
         this.tomeSystem = null;
+        this.metaProgressionSystem = null;
 
         // UI elements
         this.levelUpMenu = null;
@@ -333,11 +335,20 @@ export class Game {
             this.showLevelUpUI();
         };
 
+        // Setup death callback
+        this.player.onDeath = () => {
+            this.handlePlayerDeath();
+        };
+
         // Initialize systems
         this.inputSystem = new InputSystem(this);
         this.spawnSystem = new SpawnSystem(this);
         this.weaponSystem = new WeaponSystem(this);
         this.tomeSystem = new TomeSystem(this);
+        this.metaProgressionSystem = new MetaProgressionSystem();
+
+        // Start new run tracking
+        this.metaProgressionSystem.startNewRun();
 
         // Get UI elements
         this.levelUpMenu = document.getElementById('levelUpMenu');
@@ -637,6 +648,52 @@ export class Game {
         this.isPaused = false;
         this.lastTime = performance.now();
         console.log('[Game] Resumed');
+    }
+
+    handlePlayerDeath() {
+        console.log('[Game] Player death - ending run');
+
+        // Pause game
+        this.isPaused = true;
+
+        // End run and get statistics
+        const runData = this.metaProgressionSystem.endRun(this.player.level);
+
+        // Show run end screen
+        this.showRunEndScreen(runData);
+    }
+
+    showRunEndScreen(runData) {
+        console.log('[Game] Showing run end screen:', runData);
+
+        // TODO: Create proper UI for run end screen
+        // For now, just show an alert
+        const message = `
+Run Complete!
+
+Level Reached: ${this.player.level}
+Enemies Killed: ${runData.kills}
+Survival Time: ${Math.floor(runData.survivalTime / 60)}:${(runData.survivalTime % 60).toString().padStart(2, '0')}
+Silver Earned: ${runData.silverEarned}
+Total Silver: ${this.metaProgressionSystem.getSilver()}
+        `;
+
+        alert(message);
+
+        // Reload page to restart (temporary)
+        window.location.reload();
+    }
+
+    // Called when enemy is killed (from WeaponSystem)
+    onEnemyKilled(enemy) {
+        // Award silver
+        const silverReward = Config.metaProgression.silver.perKill;
+        this.metaProgressionSystem.addSilver(silverReward);
+
+        // Record kill
+        this.metaProgressionSystem.recordKill();
+
+        console.log(`[Game] Enemy killed, +${silverReward} silver`);
     }
 
     stop() {

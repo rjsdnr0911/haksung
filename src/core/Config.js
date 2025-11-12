@@ -213,5 +213,38 @@ export const Config = {
         color: '#00ffff',
         rotationSpeed: 0.02,
         interactionRange: 3
+    },
+
+    // Meta-progression settings
+    metaProgression: {
+        // Silver rewards
+        silver: {
+            perKill: 5,           // Base silver per enemy kill
+            perLevel: 20,         // Bonus silver per player level
+            survivalBonus: 2      // Silver per second survived
+        },
+
+        // Shop prices
+        shop: {
+            // Weapon unlocks
+            weapons: {
+                shotgun: 100,
+                smg: 150,
+                laser: 300,
+                rocket: 500
+            },
+
+            // Tool unlocks
+            tools: {
+                reroll: 200,      // Reroll level up choices
+                skip: 150,        // Skip level ups
+                banish: 250,      // Banish tomes from run
+                toggler: 300      // Toggle content on/off
+            },
+
+            // Slot expansion (price increases each time)
+            weaponSlotBase: 100,
+            weaponSlotMultiplier: 1.5
+        }
     }
 };

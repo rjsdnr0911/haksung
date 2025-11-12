@@ -21,6 +21,9 @@ export class Enemy {
         // Target (player)
         this.target = null;
 
+        // Movement tracking for predictive aiming
+        this.velocity = BABYLON.Vector3.Zero();
+
         this.createMesh();
     }
 
@@ -73,10 +76,14 @@ export class Enemy {
             if (distance > 0.1) {
                 direction.normalize();
 
+                // Calculate movement
+                const movement = direction.scale(this.speed * deltaTime);
+
+                // Update velocity for predictive aiming
+                this.velocity = direction.scale(this.speed);
+
                 // Move towards player
-                this.position = this.position.add(
-                    direction.scale(this.speed * deltaTime)
-                );
+                this.position = this.position.add(movement);
 
                 // Update mesh position
                 this.mesh.position.x = this.position.x;
@@ -85,6 +92,9 @@ export class Enemy {
                 // Rotate to face player
                 const angle = Math.atan2(direction.x, direction.z);
                 this.mesh.rotation.y = angle;
+            } else {
+                // Not moving, zero velocity
+                this.velocity = BABYLON.Vector3.Zero();
             }
 
             // Check if touching player (simple distance check)

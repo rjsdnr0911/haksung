@@ -396,3 +396,65 @@ button:active {
         padding: 12px 30px;
     }
 }
+
+/* Mobile Joystick */
+#mobileControls {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 200px;
+    z-index: 4000;
+    pointer-events: none;
+}
+
+#joystickContainer {
+    position: absolute;
+    bottom: 30px;
+    left: 30px;
+    width: 120px;
+    height: 120px;
+    pointer-events: all;
+}
+
+#joystickBase {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    border: 3px solid rgba(255, 255, 255, 0.5);
+}
+
+#joystickStick {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(74, 158, 255, 0.8);
+    border: 3px solid #4a9eff;
+    left: 35px;
+    top: 35px;
+    transition: all 0.1s;
+}
+
+#jumpButton {
+    position: absolute;
+    bottom: 50px;
+    right: 40px;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(255, 200, 0, 0.8);
+    border: 4px solid #ffcc00;
+    color: #000;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    pointer-events: all;
+}
+
+#jumpButton:active {
+    background: rgba(255, 200, 0, 1);
+    transform: scale(0.95);
+}

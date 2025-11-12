@@ -91,9 +91,12 @@ export class Enemy {
                 // Update ground height at current position
                 this.updateGroundHeight();
 
+                // Update logical position Y coordinate
+                this.position.y = this.groundHeight + this.size;
+
                 // Update mesh position
                 this.mesh.position.x = this.position.x;
-                this.mesh.position.y = this.groundHeight + this.size;
+                this.mesh.position.y = this.position.y;
                 this.mesh.position.z = this.position.z;
 
                 // Rotate to face player
@@ -111,7 +114,8 @@ export class Enemy {
         } else {
             // Update ground height even when not moving
             this.updateGroundHeight();
-            this.mesh.position.y = this.groundHeight + this.size;
+            this.position.y = this.groundHeight + this.size;
+            this.mesh.position.y = this.position.y;
         }
 
         // Slight bobbing animation

@@ -118,9 +118,8 @@ export class WeaponSystem {
         const targetPos = target.position.clone();
         const targetVelocity = target.velocity || BABYLON.Vector3.Zero();
 
-        // Calculate distance to target
+        // Calculate distance to target (3D distance)
         const toTarget = targetPos.subtract(startPos);
-        toTarget.y = 0; // Keep aim on XZ plane
         const distance = toTarget.length();
 
         // Calculate time for projectile to reach target
@@ -130,9 +129,8 @@ export class WeaponSystem {
         const predictedMovement = targetVelocity.scale(timeToReach);
         const predictedPos = targetPos.add(predictedMovement);
 
-        // Calculate direction to predicted position
+        // Calculate direction to predicted position (keep Y component for 3D aiming)
         const direction = predictedPos.subtract(startPos);
-        direction.y = 0; // Keep on XZ plane
 
         if (direction.length() > 0) {
             direction.normalize();
@@ -157,7 +155,7 @@ export class WeaponSystem {
         if (!this.game.player || !slot.currentTarget) return;
 
         const startPos = this.game.player.position.clone();
-        startPos.y = 1.0; // Fixed height for shooting
+        startPos.y = this.game.player.position.y + 1.0; // Shoot from player's height + 1.0
 
         // Calculate predictive aim direction
         const direction = this.calculatePredictiveAim(

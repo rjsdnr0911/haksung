@@ -666,22 +666,273 @@ export class Game {
     showRunEndScreen(runData) {
         console.log('[Game] Showing run end screen:', runData);
 
-        // TODO: Create proper UI for run end screen
-        // For now, just show an alert
-        const message = `
-Run Complete!
+        // Get UI elements
+        const runEndScreen = document.getElementById('runEndScreen');
+        const runLevel = document.getElementById('runLevel');
+        const runKills = document.getElementById('runKills');
+        const runTime = document.getElementById('runTime');
+        const runSilverEarned = document.getElementById('runSilverEarned');
+        const runTotalSilver = document.getElementById('runTotalSilver');
+        const shopButton = document.getElementById('shopButton');
+        const playAgainButton = document.getElementById('playAgainButton');
 
-Level Reached: ${this.player.level}
-Enemies Killed: ${runData.kills}
-Survival Time: ${Math.floor(runData.survivalTime / 60)}:${(runData.survivalTime % 60).toString().padStart(2, '0')}
-Silver Earned: ${runData.silverEarned}
-Total Silver: ${this.metaProgressionSystem.getSilver()}
+        // Format time
+        const minutes = Math.floor(runData.survivalTime / 60);
+        const seconds = runData.survivalTime % 60;
+        const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+        // Update values
+        runLevel.textContent = this.player.level;
+        runKills.textContent = runData.kills;
+        runTime.textContent = timeString;
+        runSilverEarned.textContent = runData.silverEarned;
+        runTotalSilver.textContent = this.metaProgressionSystem.getSilver();
+
+        // Show screen
+        runEndScreen.style.display = 'flex';
+
+        // Setup button handlers
+        shopButton.onclick = () => {
+            runEndScreen.style.display = 'none';
+            this.showShop();
+        };
+
+        playAgainButton.onclick = () => {
+            window.location.reload();
+        };
+    }
+
+    showShop() {
+        console.log('[Game] Showing shop');
+
+        const shopMenu = document.getElementById('shopMenu');
+        const shopSilver = document.getElementById('shopSilver');
+        const shopCloseButton = document.getElementById('shopCloseButton');
+        const startGameButton = document.getElementById('startGameButton');
+
+        // Update silver display
+        shopSilver.textContent = this.metaProgressionSystem.getSilver();
+
+        // Populate shop items
+        this.populateShopWeapons();
+        this.populateShopTools();
+        this.populateShopSlots();
+
+        // Setup tab switching
+        const tabs = document.querySelectorAll('.shop-tab');
+        const sections = document.querySelectorAll('.shop-section');
+
+        tabs.forEach(tab => {
+            tab.onclick = () => {
+                // Remove active from all
+                tabs.forEach(t => t.classList.remove('active'));
+                sections.forEach(s => s.classList.remove('active'));
+
+                // Add active to clicked tab and section
+                tab.classList.add('active');
+                const tabName = tab.getAttribute('data-tab');
+                document.getElementById(`shop-${tabName}`).classList.add('active');
+            };
+        });
+
+        // Setup buttons
+        shopCloseButton.onclick = () => {
+            shopMenu.style.display = 'none';
+        };
+
+        startGameButton.onclick = () => {
+            window.location.reload();
+        };
+
+        // Show shop
+        shopMenu.style.display = 'flex';
+    }
+
+    populateShopWeapons() {
+        const container = document.getElementById('weaponShopItems');
+        container.innerHTML = '';
+
+        const weapons = [
+            {
+                id: 'shotgun',
+                name: 'Shotgun',
+                icon: '💥',
+                description: 'Close-range powerhouse. 6 pellets per shot.',
+                price: Config.metaProgression.shop.weapons.shotgun
+            },
+            {
+                id: 'smg',
+                name: 'SMG',
+                icon: '🔫',
+                description: 'Rapid fire machine gun. 8 shots/sec.',
+                price: Config.metaProgression.shop.weapons.smg
+            },
+            {
+                id: 'laser',
+                name: 'Laser',
+                icon: '⚡',
+                description: 'Piercing beam. Hits multiple enemies.',
+                price: Config.metaProgression.shop.weapons.laser
+            },
+            {
+                id: 'rocket',
+                name: 'Rocket',
+                icon: '🚀',
+                description: 'Explosive AOE damage. Massive destruction.',
+                price: Config.metaProgression.shop.weapons.rocket
+            }
+        ];
+
+        weapons.forEach(weapon => {
+            const isUnlocked = this.metaProgressionSystem.isWeaponUnlocked(weapon.id);
+            const canAfford = this.metaProgressionSystem.getSilver() >= weapon.price;
+
+            const item = document.createElement('div');
+            item.className = 'shop-item';
+            if (isUnlocked) {
+                item.classList.add('unlocked');
+            } else if (!canAfford) {
+                item.classList.add('cant-afford');
+            }
+
+            item.innerHTML = `
+                <div class="shop-item-icon">${weapon.icon}</div>
+                <div class="shop-item-name">${weapon.name}</div>
+                <div class="shop-item-description">${weapon.description}</div>
+                ${isUnlocked
+                    ? '<div class="shop-item-status">✓ UNLOCKED</div>'
+                    : `<div class="shop-item-price">💰 ${weapon.price}</div>`
+                }
+            `;
+
+            if (!isUnlocked) {
+                item.onclick = () => {
+                    if (this.metaProgressionSystem.unlockWeapon(weapon.id, weapon.price)) {
+                        alert(`Unlocked ${weapon.name}!`);
+                        this.showShop(); // Refresh
+                    } else {
+                        alert('Not enough silver!');
+                    }
+                };
+            }
+
+            container.appendChild(item);
+        });
+    }
+
+    populateShopTools() {
+        const container = document.getElementById('toolShopItems');
+        container.innerHTML = '';
+
+        const tools = [
+            {
+                id: 'reroll',
+                name: 'Reroll',
+                icon: '🔄',
+                description: 'Reroll level up choices once per level.',
+                price: Config.metaProgression.shop.tools.reroll
+            },
+            {
+                id: 'skip',
+                name: 'Skip',
+                icon: '⏭️',
+                description: 'Skip level ups to save them for later.',
+                price: Config.metaProgression.shop.tools.skip
+            },
+            {
+                id: 'banish',
+                name: 'Banish',
+                icon: '🚫',
+                description: 'Remove unwanted tomes from this run.',
+                price: Config.metaProgression.shop.tools.banish
+            },
+            {
+                id: 'toggler',
+                name: 'Toggler',
+                icon: '🎛️',
+                description: 'Toggle content on/off permanently.',
+                price: Config.metaProgression.shop.tools.toggler
+            }
+        ];
+
+        tools.forEach(tool => {
+            const isUnlocked = this.metaProgressionSystem.isToolUnlocked(tool.id);
+            const canAfford = this.metaProgressionSystem.getSilver() >= tool.price;
+
+            const item = document.createElement('div');
+            item.className = 'shop-item';
+            if (isUnlocked) {
+                item.classList.add('unlocked');
+            } else if (!canAfford) {
+                item.classList.add('cant-afford');
+            }
+
+            item.innerHTML = `
+                <div class="shop-item-icon">${tool.icon}</div>
+                <div class="shop-item-name">${tool.name}</div>
+                <div class="shop-item-description">${tool.description}</div>
+                ${isUnlocked
+                    ? '<div class="shop-item-status">✓ UNLOCKED</div>'
+                    : `<div class="shop-item-price">💰 ${tool.price}</div>`
+                }
+            `;
+
+            if (!isUnlocked) {
+                item.onclick = () => {
+                    if (this.metaProgressionSystem.unlockTool(tool.id, tool.price)) {
+                        alert(`Unlocked ${tool.name}!`);
+                        this.showShop(); // Refresh
+                    } else {
+                        alert('Not enough silver!');
+                    }
+                };
+            }
+
+            container.appendChild(item);
+        });
+    }
+
+    populateShopSlots() {
+        const container = document.getElementById('slotShopItems');
+        container.innerHTML = '';
+
+        const currentSlots = this.metaProgressionSystem.getWeaponSlots();
+        const maxSlots = 6;
+
+        if (currentSlots >= maxSlots) {
+            container.innerHTML = '<p style="text-align: center; color: #888;">Maximum weapon slots reached!</p>';
+            return;
+        }
+
+        const price = Math.floor(
+            Config.metaProgression.shop.weaponSlotBase *
+            Math.pow(Config.metaProgression.shop.weaponSlotMultiplier, currentSlots - 2)
+        );
+        const canAfford = this.metaProgressionSystem.getSilver() >= price;
+
+        const item = document.createElement('div');
+        item.className = 'shop-item';
+        if (!canAfford) {
+            item.classList.add('cant-afford');
+        }
+
+        item.innerHTML = `
+            <div class="shop-item-icon">📦</div>
+            <div class="shop-item-name">Weapon Slot +1</div>
+            <div class="shop-item-description">Increase weapon slots from ${currentSlots} to ${currentSlots + 1}</div>
+            <div class="shop-item-price">💰 ${price}</div>
         `;
 
-        alert(message);
+        item.onclick = () => {
+            if (this.metaProgressionSystem.purchaseWeaponSlot(price)) {
+                alert(`Weapon slots increased to ${currentSlots + 1}!`);
+                this.showShop(); // Refresh
+            } else {
+                alert('Not enough silver!');
+            }
+        };
 
-        // Reload page to restart (temporary)
-        window.location.reload();
+        container.appendChild(item);
     }
 
     // Called when enemy is killed (from WeaponSystem)

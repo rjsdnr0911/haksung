@@ -90,6 +90,92 @@
         <button id="jumpButton">JUMP</button>
     </div>
 
+    <!-- Run End Screen -->
+    <div id="runEndScreen" style="display: none;">
+        <div class="runend-content">
+            <h2 class="runend-title">💀 RUN COMPLETE</h2>
+
+            <div class="runend-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="runLevel">1</div>
+                    <div class="stat-label">Level Reached</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="runKills">0</div>
+                    <div class="stat-label">Enemies Killed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="runTime">0:00</div>
+                    <div class="stat-label">Survival Time</div>
+                </div>
+            </div>
+
+            <div class="silver-earned">
+                <div class="silver-icon">💰</div>
+                <div class="silver-amount">+<span id="runSilverEarned">0</span> Silver</div>
+            </div>
+
+            <div class="total-silver">
+                Total: <span id="runTotalSilver">0</span> 💰
+            </div>
+
+            <div class="runend-buttons">
+                <button id="shopButton" class="btn-primary">SHOP</button>
+                <button id="playAgainButton" class="btn-secondary">PLAY AGAIN</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shop Menu -->
+    <div id="shopMenu" style="display: none;">
+        <div class="shop-content">
+            <h2 class="shop-title">🏪 SHOP</h2>
+
+            <div class="shop-currency">
+                <div class="currency-display">
+                    💰 <span id="shopSilver">0</span> Silver
+                </div>
+            </div>
+
+            <div class="shop-tabs">
+                <button class="shop-tab active" data-tab="weapons">Weapons</button>
+                <button class="shop-tab" data-tab="tools">Tools</button>
+                <button class="shop-tab" data-tab="slots">Slots</button>
+            </div>
+
+            <div class="shop-sections">
+                <!-- Weapons Section -->
+                <div class="shop-section active" id="shop-weapons">
+                    <h3>🔫 Weapon Unlocks</h3>
+                    <div class="shop-items" id="weaponShopItems">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+
+                <!-- Tools Section -->
+                <div class="shop-section" id="shop-tools">
+                    <h3>🛠️ Build Control Tools</h3>
+                    <div class="shop-items" id="toolShopItems">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+
+                <!-- Slots Section -->
+                <div class="shop-section" id="shop-slots">
+                    <h3>📦 Slot Expansion</h3>
+                    <div class="shop-items" id="slotShopItems">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="shop-buttons">
+                <button id="shopCloseButton" class="btn-secondary">CLOSE</button>
+                <button id="startGameButton" class="btn-primary">START GAME</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="src/main.js"></script>
 </body>
 </html>

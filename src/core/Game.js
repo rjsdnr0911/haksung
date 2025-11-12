@@ -1,5 +1,6 @@
 import { Config } from './Config.js';
 import { Player } from '../entities/Player.js';
+import { Portal } from '../entities/Portal.js';
 import { InputSystem } from '../systems/InputSystem.js';
 import { SpawnSystem } from '../systems/SpawnSystem.js';
 import { WeaponSystem } from '../systems/WeaponSystem.js';
@@ -23,6 +24,11 @@ export class Game {
         this.enemies = [];
         this.projectiles = [];
         this.xpOrbs = [];
+        this.portal = null;
+
+        // Biome system
+        this.currentBiome = 'plains'; // Start with plains
+        this.visitedBiomes = ['plains'];
 
         // Systems
         this.inputSystem = null;
@@ -114,6 +120,7 @@ export class Game {
 
     createMap() {
         const mapSize = Config.map.size;
+        const biome = Config.biomes[this.currentBiome];
 
         // Ground
         const ground = BABYLON.MeshBuilder.CreateGround(
@@ -123,31 +130,37 @@ export class Game {
         );
         ground.position.y = 0;
 
-        // Ground material with grid
+        // Ground material with biome-specific color
         const groundMat = new BABYLON.StandardMaterial('groundMat', this.scene);
-        const gridTexture = this.createGridTexture();
-        groundMat.diffuseTexture = gridTexture;
+        groundMat.diffuseColor = BABYLON.Color3.FromHexString(biome.groundColor);
         groundMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
         ground.material = groundMat;
         ground.checkCollisions = false;
 
+        // Update scene background color to match biome sky
+        this.scene.clearColor = BABYLON.Color3.FromHexString(biome.skyColor);
+
+        // Store ground reference
+        this.ground = ground;
+
         // Create terrain features
         this.createTerrainFeatures(mapSize);
 
-        console.log('[Game] Map created:', mapSize + 'x' + mapSize);
+        console.log(`[Game] Map created: ${mapSize}x${mapSize} (${biome.name} ${biome.icon})`);
     }
 
     createTerrainFeatures(mapSize) {
         const halfMap = mapSize / 2;
+        const biome = Config.biomes[this.currentBiome];
 
-        // Material for hills
+        // Material for hills (biome-specific)
         const hillMat = new BABYLON.StandardMaterial('hillMat', this.scene);
-        hillMat.diffuseColor = new BABYLON.Color3(0.3, 0.5, 0.2); // Green
+        hillMat.diffuseColor = BABYLON.Color3.FromHexString(biome.terrainColors.hill);
         hillMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
 
-        // Material for rocks
+        // Material for rocks (biome-specific)
         const rockMat = new BABYLON.StandardMaterial('rockMat', this.scene);
-        rockMat.diffuseColor = new BABYLON.Color3(0.4, 0.4, 0.4); // Gray
+        rockMat.diffuseColor = BABYLON.Color3.FromHexString(biome.terrainColors.rock);
         rockMat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
 
         // Create several hills (cylindrical mounds)
@@ -223,13 +236,36 @@ export class Game {
             mountain.position = new BABYLON.Vector3(x, height / 2, z);
 
             const mountainMat = new BABYLON.StandardMaterial(`mountainMat_${i}`, this.scene);
-            mountainMat.diffuseColor = new BABYLON.Color3(0.5, 0.4, 0.3); // Brown
+            mountainMat.diffuseColor = BABYLON.Color3.FromHexString(biome.terrainColors.mountain);
             mountainMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
             mountain.material = mountainMat;
             mountain.checkCollisions = true;
         }
 
         console.log('[Game] Terrain features created:', hillCount, 'hills,', rockCount, 'rocks,', mountainCount, 'mountains');
+    }
+
+    createPortal() {
+        const mapSize = Config.map.size;
+        const biome = Config.biomes[this.currentBiome];
+
+        // Choose random next biome from current biome's possible next zones
+        const nextBiomes = biome.nextBiomes || ['plains'];
+        const targetBiome = nextBiomes[Math.floor(Math.random() * nextBiomes.length)];
+
+        // Portal position (random location away from center)
+        const angle = Math.random() * Math.PI * 2;
+        const distance = mapSize * 0.3 + Math.random() * mapSize * 0.2; // 30-50% from center
+        const x = Math.cos(angle) * distance;
+        const z = Math.sin(angle) * distance;
+
+        this.portal = new Portal(
+            this.scene,
+            new BABYLON.Vector3(x, 0, z),
+            targetBiome
+        );
+
+        console.log(`[Game] Portal created at (${x.toFixed(1)}, ${z.toFixed(1)}) -> ${targetBiome}`);
     }
 
     createGridTexture() {
@@ -312,6 +348,9 @@ export class Game {
         this.hudElements.levelText = document.getElementById('levelText');
         this.hudElements.enemyCount = document.getElementById('enemyCount');
         this.hudElements.timeText = document.getElementById('timeText');
+
+        // Create portal
+        this.createPortal();
 
         // Record start time
         this.startTime = Date.now();
@@ -404,6 +443,7 @@ export class Game {
         this.updateEnemies();
         this.updateProjectiles();
         this.updateXPOrbs();
+        this.updatePortal();
         this.updateCamera();
         this.updateHUD();
 
@@ -460,6 +500,67 @@ export class Game {
             orb.mesh.rotation.y += this.deltaTime * 3;
             orb.mesh.position.y = 0.5 + Math.sin(Date.now() / 300) * 0.2;
         }
+    }
+
+    updatePortal() {
+        if (!this.portal || !this.player) return;
+
+        // Update portal animation
+        this.portal.update(this.deltaTime);
+
+        // Check if player is in range
+        if (this.portal.checkPlayerInRange(this.player.position)) {
+            // Activate portal and transition
+            this.portal.activate();
+            this.transitionToBiome(this.portal.targetBiome);
+        }
+    }
+
+    transitionToBiome(targetBiome) {
+        console.log(`[Game] Transitioning to ${targetBiome}...`);
+
+        // Store current biome
+        this.currentBiome = targetBiome;
+        if (!this.visitedBiomes.includes(targetBiome)) {
+            this.visitedBiomes.push(targetBiome);
+        }
+
+        // Clear old portal
+        if (this.portal) {
+            this.portal.dispose();
+            this.portal = null;
+        }
+
+        // Clear terrain (find and dispose all terrain meshes)
+        const terrainMeshes = this.scene.meshes.filter(mesh =>
+            mesh.name.startsWith('hill_') ||
+            mesh.name.startsWith('rock_') ||
+            mesh.name.startsWith('mountain_')
+        );
+        terrainMeshes.forEach(mesh => mesh.dispose());
+
+        // Clear enemies
+        this.enemies.forEach(enemy => enemy.dispose());
+        this.enemies = [];
+
+        // Update ground and sky colors
+        const biome = Config.biomes[this.currentBiome];
+        if (this.ground && this.ground.material) {
+            this.ground.material.diffuseColor = BABYLON.Color3.FromHexString(biome.groundColor);
+        }
+        this.scene.clearColor = BABYLON.Color3.FromHexString(biome.skyColor);
+
+        // Recreate terrain with new biome colors
+        this.createTerrainFeatures(Config.map.size);
+
+        // Create new portal
+        this.createPortal();
+
+        // Reset player position to center
+        this.player.position = BABYLON.Vector3.Zero();
+        this.player.mesh.position = this.player.position.clone();
+
+        console.log(`[Game] Transitioned to ${biome.name} ${biome.icon}`);
     }
 
     cleanupEntities() {

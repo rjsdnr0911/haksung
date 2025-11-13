@@ -488,8 +488,12 @@ export class WeaponSystem {
             { diameter: 0.5, segments: 8 },
             this.game.scene
         );
+
+        // 적 위치에서 지면 높이 찾기 (raycast)
+        const groundHeight = this.findGroundHeight(position);
+
         orb.position = position.clone();
-        orb.position.y = 0.5;
+        orb.position.y = groundHeight + 0.5; // 지면 위 0.5 유닛
 
         const material = new BABYLON.StandardMaterial('xpOrbMat', this.game.scene);
         material.diffuseColor = new BABYLON.Color3(0.2, 1, 0.2);
@@ -498,12 +502,40 @@ export class WeaponSystem {
 
         const orbData = {
             mesh: orb,
-            position: position.clone(),
+            position: orb.position.clone(), // 실제 오브 위치 저장
             xpValue: xpValue,
             isActive: true
         };
 
         this.game.xpOrbs.push(orbData);
+    }
+
+    findGroundHeight(position) {
+        // Cast ray downward from position to detect terrain
+        const rayOrigin = new BABYLON.Vector3(
+            position.x,
+            position.y + 50, // Start ray from above
+            position.z
+        );
+        const rayDirection = new BABYLON.Vector3(0, -1, 0); // Downward
+        const rayLength = 100;
+
+        const ray = new BABYLON.Ray(rayOrigin, rayDirection, rayLength);
+        const pickInfo = this.game.scene.pickWithRay(ray, (mesh) => {
+            // Only pick terrain meshes (hills, rocks, mountains, ground)
+            return mesh.name.startsWith('hill_') ||
+                   mesh.name.startsWith('rock_') ||
+                   mesh.name.startsWith('mountain_') ||
+                   mesh.name === 'ground';
+        });
+
+        if (pickInfo && pickInfo.hit && pickInfo.pickedPoint) {
+            // Return the ground height at this position
+            return pickInfo.pickedPoint.y;
+        } else {
+            // Fallback to default ground level
+            return 0;
+        }
     }
 
     // Aura weapon handling (Garlic)

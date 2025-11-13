@@ -1000,37 +1000,9 @@ export class Game {
     }
 
     addUnlockedWeapons() {
-        console.log('[Game] Adding weapons to arsenal...');
-
-        // Get current weapon slots limit from meta progression
-        const maxSlots = this.metaProgressionSystem.getWeaponSlots();
-        this.weaponSystem.maxSlots = maxSlots;
-
-        // All weapons available by default
-        const allWeapons = ['pistol', 'shotgun', 'smg', 'laser', 'rocket'];
-
-        // Add weapons up to slot limit (starting weapon already added)
-        for (const weaponId of allWeapons) {
-            // Check if weapon is disabled in toggler
-            if (this.metaProgressionSystem.isWeaponDisabled(weaponId)) {
-                console.log('[Game] Weapon disabled in toggler:', weaponId);
-                continue;
-            }
-
-            // Check if we have slots available
-            if (this.weaponSystem.weaponSlots.length >= maxSlots) {
-                console.warn('[Game] Max weapon slots reached:', maxSlots);
-                break;
-            }
-
-            // Add weapon
-            const added = this.weaponSystem.addWeapon(weaponId);
-            if (added) {
-                console.log('[Game] Added weapon:', weaponId);
-            }
-        }
-
-        console.log('[Game] Final weapon count:', this.weaponSystem.weaponSlots.length, '/', maxSlots);
+        console.log('[Game] Skipping additional weapons - using character exclusive weapon only');
+        // 캐릭터 전용 무기만 사용하도록 변경
+        // 추가 무기는 레벨업 시 Tome으로 획득 가능
     }
 
     // Called when enemy is killed (from WeaponSystem)

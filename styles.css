@@ -51,7 +51,68 @@ body {
 .subtitle {
     font-size: 1.2em;
     color: #aaa;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
+}
+
+#metaProgress {
+    margin: 20px 0;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    border: 2px solid rgba(255, 215, 0, 0.3);
+}
+
+.meta-info {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.meta-silver {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #ffd700;
+}
+
+.meta-stats {
+    font-size: 1.2em;
+    color: #4a9eff;
+}
+
+#menuButtons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.menu-button {
+    font-family: 'Courier New', monospace;
+    font-size: 1.4em;
+    padding: 15px 40px;
+    background: linear-gradient(135deg, #4a9eff 0%, #3366cc 100%);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(74, 158, 255, 0.4);
+}
+
+.menu-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(74, 158, 255, 0.6);
+}
+
+.menu-button.secondary {
+    background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+}
+
+.menu-button.secondary:hover {
+    box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6);
 }
 
 #loading {

@@ -17,8 +17,24 @@
         <div class="menu-content">
             <h1>MEGABONK CLONE</h1>
             <p class="subtitle">Top-Down 3D Roguelike Shooter</p>
+
+            <!-- Meta Progress Display -->
+            <div id="metaProgress" style="display: none;">
+                <div class="meta-info">
+                    <div class="meta-silver">💰 <span id="menuSilver">0</span> Silver</div>
+                    <div class="meta-stats">
+                        <span id="menuWeapons">0/4</span> Weapons |
+                        <span id="menuTools">0/4</span> Tools
+                    </div>
+                </div>
+            </div>
+
             <div id="loading">Loading...</div>
-            <button id="startButton" style="display: none;">START GAME</button>
+            <div id="menuButtons" style="display: none;">
+                <button id="startButton" class="menu-button">▶ START GAME</button>
+                <button id="shopMenuButton" class="menu-button secondary">🏪 SHOP</button>
+            </div>
+
             <div class="instructions">
                 <h3>Controls:</h3>
                 <p><strong>WASD</strong> - Move</p>

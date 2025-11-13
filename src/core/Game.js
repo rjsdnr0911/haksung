@@ -399,8 +399,9 @@ export class Game {
     }
 
     renderLevelUpUI() {
-        // Get random tomes
-        const tomes = this.tomeSystem.getRandomTomes(3);
+        // Get random tomes (use tome slot count from meta progression)
+        const tomeSlotCount = this.metaProgressionSystem ? this.metaProgressionSystem.getTomeSlots() : 3;
+        const tomes = this.tomeSystem.getRandomTomes(tomeSlotCount);
 
         if (tomes.length === 0) {
             console.warn('[Game] No tomes available, resuming game');
@@ -421,69 +422,43 @@ export class Game {
             const card = document.createElement('div');
             card.className = `tome-card ${tome.rarity}`;
 
-            let banishButton = '';
-            if (this.tomeSystem.canBanish()) {
-                banishButton = '<div class="tome-banish" data-tome-id="' + tome.id + '">🚫</div>';
-            }
-
             card.innerHTML = `
                 <div class="tome-rarity ${tome.rarity}">${tome.rarity}</div>
                 <div class="tome-icon">${tome.icon}</div>
                 <div class="tome-name">${tome.name}</div>
                 <div class="tome-description">${tome.description}</div>
-                ${banishButton}
             `;
 
             // Add click handler for selecting tome
-            card.addEventListener('click', (e) => {
-                // Don't select if clicking banish button
-                if (e.target.classList.contains('tome-banish')) {
-                    return;
-                }
+            card.addEventListener('click', () => {
                 this.selectTome(tome);
             });
-
-            // Add banish handler
-            const banishBtn = card.querySelector('.tome-banish');
-            if (banishBtn) {
-                banishBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.banishTome(tome);
-                });
-            }
 
             tomeCardsContainer.appendChild(card);
         });
 
-        // Setup Reroll button
+        // Setup Reroll button (always available)
         if (this.tomeSystem.canReroll()) {
             rerollButton.style.display = 'inline-block';
             rerollButton.disabled = false;
+            rerollButton.textContent = '🔄 Reroll';
             rerollButton.onclick = () => {
                 if (this.tomeSystem.useReroll()) {
                     this.renderLevelUpUI(); // Re-render with new tomes
                 }
             };
         } else {
-            if (this.metaProgressionSystem && this.metaProgressionSystem.isToolUnlocked('reroll')) {
-                // Show but disable if used up
-                rerollButton.style.display = 'inline-block';
-                rerollButton.disabled = true;
-                rerollButton.textContent = '🔄 Reroll (Used)';
-            } else {
-                rerollButton.style.display = 'none';
-            }
+            // Show but disable if used up this level
+            rerollButton.style.display = 'inline-block';
+            rerollButton.disabled = true;
+            rerollButton.textContent = '🔄 Reroll (Used)';
         }
 
-        // Setup Skip button
-        if (this.tomeSystem.canSkip()) {
-            skipButton.style.display = 'inline-block';
-            skipButton.onclick = () => {
-                this.skipLevelUp();
-            };
-        } else {
-            skipButton.style.display = 'none';
-        }
+        // Setup Skip button (always available)
+        skipButton.style.display = 'inline-block';
+        skipButton.onclick = () => {
+            this.skipLevelUp();
+        };
 
         // Show menu
         this.levelUpMenu.style.display = 'flex';
@@ -503,15 +478,6 @@ export class Game {
         this.lastTime = performance.now();
 
         console.log('[Game] Game resumed');
-    }
-
-    banishTome(tome) {
-        console.log('[Game] Banishing tome:', tome.name);
-
-        if (this.tomeSystem.banishTome(tome.id)) {
-            // Refresh the UI
-            this.renderLevelUpUI();
-        }
     }
 
     skipLevelUp() {
@@ -803,8 +769,6 @@ export class Game {
         shopSilver.textContent = this.metaProgressionSystem.getSilver();
 
         // Populate shop items
-        this.populateShopWeapons();
-        this.populateShopTools();
         this.populateShopSlots();
         this.populateToggler();
 
@@ -838,191 +802,91 @@ export class Game {
         shopMenu.style.display = 'flex';
     }
 
-    populateShopWeapons() {
-        const container = document.getElementById('weaponShopItems');
-        container.innerHTML = '';
-
-        const weapons = [
-            {
-                id: 'shotgun',
-                name: 'Shotgun',
-                icon: '💥',
-                description: 'Close-range powerhouse. 6 pellets per shot.',
-                price: Config.metaProgression.shop.weapons.shotgun
-            },
-            {
-                id: 'smg',
-                name: 'SMG',
-                icon: '🔫',
-                description: 'Rapid fire machine gun. 8 shots/sec.',
-                price: Config.metaProgression.shop.weapons.smg
-            },
-            {
-                id: 'laser',
-                name: 'Laser',
-                icon: '⚡',
-                description: 'Piercing beam. Hits multiple enemies.',
-                price: Config.metaProgression.shop.weapons.laser
-            },
-            {
-                id: 'rocket',
-                name: 'Rocket',
-                icon: '🚀',
-                description: 'Explosive AOE damage. Massive destruction.',
-                price: Config.metaProgression.shop.weapons.rocket
-            }
-        ];
-
-        weapons.forEach(weapon => {
-            const isUnlocked = this.metaProgressionSystem.isWeaponUnlocked(weapon.id);
-            const canAfford = this.metaProgressionSystem.getSilver() >= weapon.price;
-
-            const item = document.createElement('div');
-            item.className = 'shop-item';
-            if (isUnlocked) {
-                item.classList.add('unlocked');
-            } else if (!canAfford) {
-                item.classList.add('cant-afford');
-            }
-
-            item.innerHTML = `
-                <div class="shop-item-icon">${weapon.icon}</div>
-                <div class="shop-item-name">${weapon.name}</div>
-                <div class="shop-item-description">${weapon.description}</div>
-                ${isUnlocked
-                    ? '<div class="shop-item-status">✓ UNLOCKED</div>'
-                    : `<div class="shop-item-price">💰 ${weapon.price}</div>`
-                }
-            `;
-
-            if (!isUnlocked) {
-                item.onclick = () => {
-                    if (this.metaProgressionSystem.unlockWeapon(weapon.id, weapon.price)) {
-                        alert(`Unlocked ${weapon.name}!`);
-                        this.showShop(); // Refresh
-                    } else {
-                        alert('Not enough silver!');
-                    }
-                };
-            }
-
-            container.appendChild(item);
-        });
-    }
-
-    populateShopTools() {
-        const container = document.getElementById('toolShopItems');
-        container.innerHTML = '';
-
-        const tools = [
-            {
-                id: 'reroll',
-                name: 'Reroll',
-                icon: '🔄',
-                description: 'Reroll level up choices once per level.',
-                price: Config.metaProgression.shop.tools.reroll
-            },
-            {
-                id: 'skip',
-                name: 'Skip',
-                icon: '⏭️',
-                description: 'Skip level ups to save them for later.',
-                price: Config.metaProgression.shop.tools.skip
-            },
-            {
-                id: 'banish',
-                name: 'Banish',
-                icon: '🚫',
-                description: 'Remove unwanted tomes from this run.',
-                price: Config.metaProgression.shop.tools.banish
-            },
-            {
-                id: 'toggler',
-                name: 'Toggler',
-                icon: '🎛️',
-                description: 'Toggle content on/off permanently.',
-                price: Config.metaProgression.shop.tools.toggler
-            }
-        ];
-
-        tools.forEach(tool => {
-            const isUnlocked = this.metaProgressionSystem.isToolUnlocked(tool.id);
-            const canAfford = this.metaProgressionSystem.getSilver() >= tool.price;
-
-            const item = document.createElement('div');
-            item.className = 'shop-item';
-            if (isUnlocked) {
-                item.classList.add('unlocked');
-            } else if (!canAfford) {
-                item.classList.add('cant-afford');
-            }
-
-            item.innerHTML = `
-                <div class="shop-item-icon">${tool.icon}</div>
-                <div class="shop-item-name">${tool.name}</div>
-                <div class="shop-item-description">${tool.description}</div>
-                ${isUnlocked
-                    ? '<div class="shop-item-status">✓ UNLOCKED</div>'
-                    : `<div class="shop-item-price">💰 ${tool.price}</div>`
-                }
-            `;
-
-            if (!isUnlocked) {
-                item.onclick = () => {
-                    if (this.metaProgressionSystem.unlockTool(tool.id, tool.price)) {
-                        alert(`Unlocked ${tool.name}!`);
-                        this.showShop(); // Refresh
-                    } else {
-                        alert('Not enough silver!');
-                    }
-                };
-            }
-
-            container.appendChild(item);
-        });
-    }
-
     populateShopSlots() {
         const container = document.getElementById('slotShopItems');
         container.innerHTML = '';
 
-        const currentSlots = this.metaProgressionSystem.getWeaponSlots();
+        const currentWeaponSlots = this.metaProgressionSystem.getWeaponSlots();
+        const currentTomeSlots = this.metaProgressionSystem.getTomeSlots();
         const maxSlots = 6;
 
-        if (currentSlots >= maxSlots) {
-            container.innerHTML = '<p style="text-align: center; color: #888;">Maximum weapon slots reached!</p>';
-            return;
-        }
+        // Weapon Slots
+        if (currentWeaponSlots < maxSlots) {
+            const weaponPrice = Math.floor(
+                Config.metaProgression.shop.weaponSlotBase *
+                Math.pow(Config.metaProgression.shop.weaponSlotMultiplier, currentWeaponSlots - 2)
+            );
+            const canAfford = this.metaProgressionSystem.getSilver() >= weaponPrice;
 
-        const price = Math.floor(
-            Config.metaProgression.shop.weaponSlotBase *
-            Math.pow(Config.metaProgression.shop.weaponSlotMultiplier, currentSlots - 2)
-        );
-        const canAfford = this.metaProgressionSystem.getSilver() >= price;
-
-        const item = document.createElement('div');
-        item.className = 'shop-item';
-        if (!canAfford) {
-            item.classList.add('cant-afford');
-        }
-
-        item.innerHTML = `
-            <div class="shop-item-icon">📦</div>
-            <div class="shop-item-name">Weapon Slot +1</div>
-            <div class="shop-item-description">Increase weapon slots from ${currentSlots} to ${currentSlots + 1}</div>
-            <div class="shop-item-price">💰 ${price}</div>
-        `;
-
-        item.onclick = () => {
-            if (this.metaProgressionSystem.purchaseWeaponSlot(price)) {
-                alert(`Weapon slots increased to ${currentSlots + 1}!`);
-                this.showShop(); // Refresh
-            } else {
-                alert('Not enough silver!');
+            const item = document.createElement('div');
+            item.className = 'shop-item';
+            if (!canAfford) {
+                item.classList.add('cant-afford');
             }
-        };
 
-        container.appendChild(item);
+            item.innerHTML = `
+                <div class="shop-item-icon">🔫</div>
+                <div class="shop-item-name">Weapon Slot +1</div>
+                <div class="shop-item-description">Increase weapon slots: ${currentWeaponSlots} → ${currentWeaponSlots + 1}</div>
+                <div class="shop-item-price">💰 ${weaponPrice}</div>
+            `;
+
+            item.onclick = () => {
+                if (this.metaProgressionSystem.purchaseWeaponSlot(weaponPrice)) {
+                    alert(`Weapon slots increased to ${currentWeaponSlots + 1}!`);
+                    this.showShop(); // Refresh
+                } else {
+                    alert('Not enough silver!');
+                }
+            };
+
+            container.appendChild(item);
+        } else {
+            const notice = document.createElement('p');
+            notice.style.textAlign = 'center';
+            notice.style.color = '#888';
+            notice.textContent = '✓ Maximum weapon slots reached (6/6)';
+            container.appendChild(notice);
+        }
+
+        // Tome Slots
+        if (currentTomeSlots < maxSlots) {
+            const tomePrice = Math.floor(
+                Config.metaProgression.shop.tomeSlotBase *
+                Math.pow(Config.metaProgression.shop.tomeSlotMultiplier, currentTomeSlots - 3)
+            );
+            const canAfford = this.metaProgressionSystem.getSilver() >= tomePrice;
+
+            const item = document.createElement('div');
+            item.className = 'shop-item';
+            if (!canAfford) {
+                item.classList.add('cant-afford');
+            }
+
+            item.innerHTML = `
+                <div class="shop-item-icon">📜</div>
+                <div class="shop-item-name">Tome Slot +1</div>
+                <div class="shop-item-description">Increase level-up choices: ${currentTomeSlots} → ${currentTomeSlots + 1}</div>
+                <div class="shop-item-price">💰 ${tomePrice}</div>
+            `;
+
+            item.onclick = () => {
+                if (this.metaProgressionSystem.purchaseTomeSlot(tomePrice)) {
+                    alert(`Tome slots increased to ${currentTomeSlots + 1}!`);
+                    this.showShop(); // Refresh
+                } else {
+                    alert('Not enough silver!');
+                }
+            };
+
+            container.appendChild(item);
+        } else if (currentWeaponSlots >= maxSlots) {
+            const notice = document.createElement('p');
+            notice.style.textAlign = 'center';
+            notice.style.color = '#888';
+            notice.textContent = '✓ Maximum tome slots reached (6/6)';
+            container.appendChild(notice);
+        }
     }
 
     populateToggler() {
@@ -1033,7 +897,7 @@ export class Game {
         weaponsContainer.innerHTML = '';
         tomesContainer.innerHTML = '';
 
-        // Populate weapons
+        // Populate all weapons (all unlocked by default)
         const weaponDefs = {
             pistol: { name: '🔫 Pistol', description: 'Starting weapon' },
             shotgun: { name: '💥 Shotgun', description: 'Close-range powerhouse' },
@@ -1042,11 +906,8 @@ export class Game {
             rocket: { name: '🚀 Rocket', description: 'Explosive damage' }
         };
 
-        const unlockedWeapons = this.metaProgressionSystem.getUnlockedWeapons();
-        unlockedWeapons.forEach(weaponId => {
+        Object.keys(weaponDefs).forEach(weaponId => {
             const weaponDef = weaponDefs[weaponId];
-            if (!weaponDef) return;
-
             const isEnabled = !this.metaProgressionSystem.isWeaponDisabled(weaponId);
 
             const item = document.createElement('div');
@@ -1071,11 +932,7 @@ export class Game {
             weaponsContainer.appendChild(item);
         });
 
-        if (unlockedWeapons.length === 0) {
-            weaponsContainer.innerHTML = '<p style="text-align: center; color: #888;">No weapons unlocked yet.</p>';
-        }
-
-        // Populate tomes
+        // Populate all tomes (all unlocked by default)
         const tomeDefs = {
             damage_boost: { name: '⚔️ Damage Boost', rarity: 'common' },
             fire_rate_boost: { name: '🔥 Fire Rate', rarity: 'common' },
@@ -1089,8 +946,6 @@ export class Game {
             xp_boost: { name: '✨ XP Boost', rarity: 'rare' }
         };
 
-        // For now, all tomes are unlocked by default
-        // In the future, you can add tome unlock system
         Object.keys(tomeDefs).forEach(tomeId => {
             const tomeDef = tomeDefs[tomeId];
             const isEnabled = !this.metaProgressionSystem.isTomeDisabled(tomeId);
@@ -1119,18 +974,17 @@ export class Game {
     }
 
     addUnlockedWeapons() {
-        console.log('[Game] Adding unlocked weapons to arsenal...');
+        console.log('[Game] Adding weapons to arsenal...');
 
-        // Get unlocked weapons from meta progression
-        const unlockedWeapons = this.metaProgressionSystem.getUnlockedWeapons();
-        console.log('[Game] Unlocked weapons:', unlockedWeapons);
-
-        // Get current weapon slots limit
+        // Get current weapon slots limit from meta progression
         const maxSlots = this.metaProgressionSystem.getWeaponSlots();
         this.weaponSystem.maxSlots = maxSlots;
 
-        // Add all unlocked weapons (except pistol which is already added)
-        for (const weaponId of unlockedWeapons) {
+        // All weapons available by default
+        const allWeapons = ['pistol', 'shotgun', 'smg', 'laser', 'rocket'];
+
+        // Add weapons up to slot limit (pistol already added by WeaponSystem)
+        for (const weaponId of allWeapons) {
             // Skip pistol (already added in WeaponSystem constructor)
             if (weaponId === 'pistol') continue;
 
@@ -1142,14 +996,14 @@ export class Game {
 
             // Check if we have slots available
             if (this.weaponSystem.weaponSlots.length >= maxSlots) {
-                console.warn('[Game] Max weapon slots reached, cannot add:', weaponId);
+                console.warn('[Game] Max weapon slots reached:', maxSlots);
                 break;
             }
 
             // Add weapon
             const added = this.weaponSystem.addWeapon(weaponId);
             if (added) {
-                console.log('[Game] Added unlocked weapon:', weaponId);
+                console.log('[Game] Added weapon:', weaponId);
             }
         }
 

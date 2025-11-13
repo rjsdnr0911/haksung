@@ -267,19 +267,9 @@ export class TomeSystem {
 
         // Apply meta-progression filters if available
         if (metaSystem) {
-            // Filter by unlocked status
-            eligibleTomes = eligibleTomes.filter(tome => {
-                return metaSystem.isTomeUnlocked(tome.id);
-            });
-
-            // Filter by toggler (disabled tomes)
+            // Filter by toggler only (all tomes unlocked by default)
             eligibleTomes = eligibleTomes.filter(tome => {
                 return !metaSystem.isTomeDisabled(tome.id);
-            });
-
-            // Filter by banish (current run)
-            eligibleTomes = eligibleTomes.filter(tome => {
-                return !metaSystem.isTomeBanished(tome.id);
             });
 
             // Special filter for weapon unlock tomes
@@ -287,11 +277,6 @@ export class TomeSystem {
                 // Check if this is a weapon unlock tome
                 if (tome.id.startsWith('unlock_')) {
                     const weaponId = tome.id.replace('unlock_', ''); // e.g., 'unlock_shotgun' -> 'shotgun'
-
-                    // Check if weapon is unlocked in shop
-                    if (!metaSystem.isWeaponUnlocked(weaponId)) {
-                        return false; // Weapon not purchased in shop
-                    }
 
                     // Check if weapon is toggled off
                     if (metaSystem.isWeaponDisabled(weaponId)) {
@@ -320,13 +305,7 @@ export class TomeSystem {
     }
 
     canReroll() {
-        const metaSystem = this.game.metaProgressionSystem;
-        if (!metaSystem) return false;
-
-        // Check if reroll is unlocked
-        if (!metaSystem.isToolUnlocked('reroll')) return false;
-
-        // Check if rerolls available for this level up
+        // Always available (1x per level up)
         return this.rerollsUsed < this.maxRerolls;
     }
 
@@ -343,36 +322,6 @@ export class TomeSystem {
 
     resetRerolls() {
         this.rerollsUsed = 0;
-    }
-
-    canSkip() {
-        const metaSystem = this.game.metaProgressionSystem;
-        if (!metaSystem) return false;
-
-        // Check if skip is unlocked
-        return metaSystem.isToolUnlocked('skip');
-    }
-
-    canBanish() {
-        const metaSystem = this.game.metaProgressionSystem;
-        if (!metaSystem) return false;
-
-        // Check if banish is unlocked
-        return metaSystem.isToolUnlocked('banish');
-    }
-
-    banishTome(tomeId) {
-        const metaSystem = this.game.metaProgressionSystem;
-        if (!metaSystem) return false;
-
-        if (!this.canBanish()) {
-            console.warn('[TomeSystem] Banish not unlocked');
-            return false;
-        }
-
-        metaSystem.banishTome(tomeId);
-        console.log('[TomeSystem] Banished tome:', tomeId);
-        return true;
     }
 
     applyTome(tome) {

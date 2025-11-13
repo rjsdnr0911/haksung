@@ -224,27 +224,15 @@ export const Config = {
             survivalBonus: 2      // Silver per second survived
         },
 
-        // Shop prices
+        // Shop prices (only slot expansions)
         shop: {
-            // Weapon unlocks
-            weapons: {
-                shotgun: 100,
-                smg: 150,
-                laser: 300,
-                rocket: 500
-            },
-
-            // Tool unlocks
-            tools: {
-                reroll: 200,      // Reroll level up choices
-                skip: 150,        // Skip level ups
-                banish: 250,      // Banish tomes from run
-                toggler: 300      // Toggle content on/off
-            },
-
-            // Slot expansion (price increases each time)
+            // Weapon slot expansion (price increases each time)
             weaponSlotBase: 100,
-            weaponSlotMultiplier: 1.5
+            weaponSlotMultiplier: 1.5,
+
+            // Tome slot expansion (price increases each time)
+            tomeSlotBase: 120,
+            tomeSlotMultiplier: 1.6
         }
     }
 };

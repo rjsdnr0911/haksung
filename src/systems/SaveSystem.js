@@ -23,42 +23,16 @@ export class SaveSystem {
                 highestLevel: 1
             },
 
-            // Unlocked content
-            unlocks: {
-                // Weapons (pistol is default)
-                weapons: ['pistol'],
-                // Tomes (basic tomes are default)
-                tomes: [
-                    'damage_boost',
-                    'fire_rate_boost',
-                    'range_boost',
-                    'max_health_boost',
-                    'heal'
-                ],
-                // Build control tools
-                tools: {
-                    reroll: false,      // Can reroll level up choices
-                    skip: false,        // Can skip level ups
-                    banish: false,      // Can banish tomes from run
-                    toggler: false      // Can toggle content on/off permanently
-                }
-            },
-
-            // Slot expansions
+            // Slot expansions (only purchasable upgrades)
             slots: {
-                weaponSlots: 2,  // Start with 2 weapon slots
-                tomeSlots: 1     // Tomes don't have slots, but track unlocks
+                weaponSlots: 2,  // Start with 2 weapon slots (max 6)
+                tomeSlots: 3     // Start with 3 tome choices (max 6)
             },
 
             // Toggler settings (disabled content)
             toggler: {
-                disabledWeapons: [],
-                disabledTomes: []
-            },
-
-            // Current run state (for banish)
-            currentRun: {
-                banishedTomes: []
+                disabledWeapons: [],  // Disabled weapon IDs
+                disabledTomes: []     // Disabled tome IDs
             }
         };
     }
@@ -116,15 +90,6 @@ export class SaveSystem {
                 ...savedData.stats
             },
 
-            unlocks: {
-                weapons: savedData.unlocks?.weapons || defaultData.unlocks.weapons,
-                tomes: savedData.unlocks?.tomes || defaultData.unlocks.tomes,
-                tools: {
-                    ...defaultData.unlocks.tools,
-                    ...savedData.unlocks?.tools
-                }
-            },
-
             slots: {
                 ...defaultData.slots,
                 ...savedData.slots
@@ -133,10 +98,6 @@ export class SaveSystem {
             toggler: {
                 disabledWeapons: savedData.toggler?.disabledWeapons || [],
                 disabledTomes: savedData.toggler?.disabledTomes || []
-            },
-
-            currentRun: {
-                banishedTomes: []  // Always reset banished tomes
             }
         };
     }

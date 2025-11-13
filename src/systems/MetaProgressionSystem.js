@@ -1,6 +1,6 @@
 /**
  * MetaProgressionSystem - Manages meta-progression
- * Currency, unlocks, shop, and build control tools
+ * Slot expansion, toggler, and currency system (simplified)
  */
 
 import { SaveSystem } from './SaveSystem.js';
@@ -100,106 +100,7 @@ export class MetaProgressionSystem {
             startTime: Date.now()
         };
 
-        // Reset banished tomes for new run
-        this.data.currentRun.banishedTomes = [];
-
         console.log('[MetaProgression] New run started');
-    }
-
-    // ========== Unlocks ==========
-
-    /**
-     * Check if weapon is unlocked
-     */
-    isWeaponUnlocked(weaponId) {
-        return this.data.unlocks.weapons.includes(weaponId);
-    }
-
-    /**
-     * Unlock a weapon
-     */
-    unlockWeapon(weaponId, cost) {
-        if (this.isWeaponUnlocked(weaponId)) {
-            console.warn(`[MetaProgression] Weapon ${weaponId} already unlocked`);
-            return false;
-        }
-
-        if (this.spendSilver(cost)) {
-            this.data.unlocks.weapons.push(weaponId);
-            this.save();
-            console.log(`[MetaProgression] Unlocked weapon: ${weaponId}`);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Check if tome is unlocked
-     */
-    isTomeUnlocked(tomeId) {
-        return this.data.unlocks.tomes.includes(tomeId);
-    }
-
-    /**
-     * Unlock a tome
-     */
-    unlockTome(tomeId, cost) {
-        if (this.isTomeUnlocked(tomeId)) {
-            console.warn(`[MetaProgression] Tome ${tomeId} already unlocked`);
-            return false;
-        }
-
-        if (this.spendSilver(cost)) {
-            this.data.unlocks.tomes.push(tomeId);
-            this.save();
-            console.log(`[MetaProgression] Unlocked tome: ${tomeId}`);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Get list of unlocked weapons
-     */
-    getUnlockedWeapons() {
-        return this.data.unlocks.weapons;
-    }
-
-    /**
-     * Get list of unlocked tomes
-     */
-    getUnlockedTomes() {
-        return this.data.unlocks.tomes;
-    }
-
-    // ========== Build Control Tools ==========
-
-    /**
-     * Check if tool is unlocked
-     */
-    isToolUnlocked(toolName) {
-        return this.data.unlocks.tools[toolName] === true;
-    }
-
-    /**
-     * Unlock a build control tool
-     */
-    unlockTool(toolName, cost) {
-        if (this.isToolUnlocked(toolName)) {
-            console.warn(`[MetaProgression] Tool ${toolName} already unlocked`);
-            return false;
-        }
-
-        if (this.spendSilver(cost)) {
-            this.data.unlocks.tools[toolName] = true;
-            this.save();
-            console.log(`[MetaProgression] Unlocked tool: ${toolName}`);
-            return true;
-        }
-
-        return false;
     }
 
     // ========== Slot Expansion ==========
@@ -209,6 +110,13 @@ export class MetaProgressionSystem {
      */
     getWeaponSlots() {
         return this.data.slots.weaponSlots;
+    }
+
+    /**
+     * Get current tome slot count (level up choices)
+     */
+    getTomeSlots() {
+        return this.data.slots.tomeSlots;
     }
 
     /**
@@ -224,6 +132,25 @@ export class MetaProgressionSystem {
             this.data.slots.weaponSlots++;
             this.save();
             console.log(`[MetaProgression] Weapon slots increased to ${this.data.slots.weaponSlots}`);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Purchase additional tome slot (level up choice)
+     */
+    purchaseTomeSlot(cost) {
+        if (this.data.slots.tomeSlots >= 6) {
+            console.warn('[MetaProgression] Maximum tome slots reached (6)');
+            return false;
+        }
+
+        if (this.spendSilver(cost)) {
+            this.data.slots.tomeSlots++;
+            this.save();
+            console.log(`[MetaProgression] Tome slots increased to ${this.data.slots.tomeSlots}`);
             return true;
         }
 
@@ -284,67 +211,6 @@ export class MetaProgressionSystem {
         this.save();
     }
 
-    // ========== Banish System (Per-Run) ==========
-
-    /**
-     * Check if tome is banished in current run
-     */
-    isTomeBanished(tomeId) {
-        return this.data.currentRun.banishedTomes.includes(tomeId);
-    }
-
-    /**
-     * Banish tome for current run only
-     */
-    banishTome(tomeId) {
-        if (!this.isTomeBanished(tomeId)) {
-            this.data.currentRun.banishedTomes.push(tomeId);
-            console.log(`[MetaProgression] Banished tome for this run: ${tomeId}`);
-        }
-    }
-
-    /**
-     * Get list of banished tomes for current run
-     */
-    getBanishedTomes() {
-        return this.data.currentRun.banishedTomes;
-    }
-
-    // ========== Filtering ==========
-
-    /**
-     * Filter tomes based on unlocks, toggler, and banish
-     */
-    getAvailableTomes(allTomes) {
-        return allTomes.filter(tome => {
-            // Must be unlocked
-            if (!this.isTomeUnlocked(tome.id)) return false;
-
-            // Must not be disabled by toggler
-            if (this.isTomeDisabled(tome.id)) return false;
-
-            // Must not be banished in current run
-            if (this.isTomeBanished(tome.id)) return false;
-
-            return true;
-        });
-    }
-
-    /**
-     * Filter weapons based on unlocks and toggler
-     */
-    getAvailableWeapons(allWeapons) {
-        return allWeapons.filter(weapon => {
-            // Must be unlocked
-            if (!this.isWeaponUnlocked(weapon.id)) return false;
-
-            // Must not be disabled by toggler
-            if (this.isWeaponDisabled(weapon.id)) return false;
-
-            return true;
-        });
-    }
-
     // ========== Save/Load ==========
 
     save() {
@@ -364,29 +230,9 @@ export class MetaProgressionSystem {
         console.log(`[MetaProgression] Debug: Added ${amount} silver`);
     }
 
-    unlockAll() {
-        // Unlock all weapons
-        this.data.unlocks.weapons = ['pistol', 'shotgun', 'smg', 'laser', 'rocket'];
-
-        // Unlock all tomes (you'll need to add all tome IDs here)
-        this.data.unlocks.tomes = [
-            'damage_boost', 'fire_rate_boost', 'range_boost', 'projectile_speed',
-            'max_health_boost', 'heal', 'speed_boost', 'xp_magnet', 'xp_boost',
-            'multi_shot', 'unlock_shotgun', 'unlock_smg', 'unlock_laser', 'unlock_rocket'
-        ];
-
-        // Unlock all tools
-        this.data.unlocks.tools = {
-            reroll: true,
-            skip: true,
-            banish: true,
-            toggler: true
-        };
-
-        // Max weapon slots
-        this.data.slots.weaponSlots = 6;
-
-        this.save();
-        console.log('[MetaProgression] Debug: Unlocked everything');
+    resetProgress() {
+        this.saveSystem.clearSave();
+        this.data = this.saveSystem.load();
+        console.log('[MetaProgression] Debug: Progress reset');
     }
 }

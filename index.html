@@ -23,8 +23,7 @@
                 <div class="meta-info">
                     <div class="meta-silver">💰 <span id="menuSilver">0</span> Silver</div>
                     <div class="meta-stats">
-                        <span id="menuWeapons">0/4</span> Weapons |
-                        <span id="menuTools">0/4</span> Tools
+                        Slots: <span id="menuSlots">2 Weapons / 3 Tomes</span>
                     </div>
                 </div>
             </div>
@@ -165,32 +164,15 @@
             </div>
 
             <div class="shop-tabs">
-                <button class="shop-tab active" data-tab="weapons">Weapons</button>
-                <button class="shop-tab" data-tab="tools">Tools</button>
-                <button class="shop-tab" data-tab="slots">Slots</button>
+                <button class="shop-tab active" data-tab="slots">Slots</button>
                 <button class="shop-tab" data-tab="toggler">Toggler</button>
             </div>
 
             <div class="shop-sections">
-                <!-- Weapons Section -->
-                <div class="shop-section active" id="shop-weapons">
-                    <h3>🔫 Weapon Unlocks</h3>
-                    <div class="shop-items" id="weaponShopItems">
-                        <!-- Dynamically populated -->
-                    </div>
-                </div>
-
-                <!-- Tools Section -->
-                <div class="shop-section" id="shop-tools">
-                    <h3>🛠️ Build Control Tools</h3>
-                    <div class="shop-items" id="toolShopItems">
-                        <!-- Dynamically populated -->
-                    </div>
-                </div>
-
                 <!-- Slots Section -->
-                <div class="shop-section" id="shop-slots">
+                <div class="shop-section active" id="shop-slots">
                     <h3>📦 Slot Expansion</h3>
+                    <p class="shop-description">Expand your weapon and tome capacity.</p>
                     <div class="shop-items" id="slotShopItems">
                         <!-- Dynamically populated -->
                     </div>

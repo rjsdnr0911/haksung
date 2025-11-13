@@ -41,14 +41,10 @@ function updateMainMenu() {
     // Update silver
     document.getElementById('menuSilver').textContent = metaSystem.getSilver();
 
-    // Count unlocked weapons (excluding pistol which is default)
-    const unlockedWeapons = metaSystem.getUnlockedWeapons().filter(w => w !== 'pistol').length;
-    document.getElementById('menuWeapons').textContent = `${unlockedWeapons}/4`;
-
-    // Count unlocked tools
-    const tools = ['reroll', 'skip', 'banish', 'toggler'];
-    const unlockedTools = tools.filter(t => metaSystem.isToolUnlocked(t)).length;
-    document.getElementById('menuTools').textContent = `${unlockedTools}/4`;
+    // Update slot counts
+    const weaponSlots = metaSystem.getWeaponSlots();
+    const tomeSlots = metaSystem.getTomeSlots();
+    document.getElementById('menuSlots').textContent = `${weaponSlots} Weapons / ${tomeSlots} Tomes`;
 }
 
 function startGame() {

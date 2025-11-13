@@ -388,7 +388,15 @@ export class Game {
         // Pause game
         this.isPaused = true;
 
-        // Get 3 random tomes
+        // Reset rerolls for new level up
+        this.tomeSystem.resetRerolls();
+
+        // Show the UI
+        this.renderLevelUpUI();
+    }
+
+    renderLevelUpUI() {
+        // Get random tomes
         const tomes = this.tomeSystem.getRandomTomes(3);
 
         if (tomes.length === 0) {
@@ -397,27 +405,82 @@ export class Game {
             return;
         }
 
-        // Create tome cards
+        // Get UI elements
         const tomeCardsContainer = document.getElementById('tomeCards');
-        tomeCardsContainer.innerHTML = ''; // Clear previous cards
+        const rerollButton = document.getElementById('rerollButton');
+        const skipButton = document.getElementById('skipButton');
 
+        // Clear previous cards
+        tomeCardsContainer.innerHTML = '';
+
+        // Create tome cards
         tomes.forEach(tome => {
             const card = document.createElement('div');
             card.className = `tome-card ${tome.rarity}`;
+
+            let banishButton = '';
+            if (this.tomeSystem.canBanish()) {
+                banishButton = '<div class="tome-banish" data-tome-id="' + tome.id + '">🚫</div>';
+            }
+
             card.innerHTML = `
                 <div class="tome-rarity ${tome.rarity}">${tome.rarity}</div>
                 <div class="tome-icon">${tome.icon}</div>
                 <div class="tome-name">${tome.name}</div>
                 <div class="tome-description">${tome.description}</div>
+                ${banishButton}
             `;
 
-            // Add click handler
-            card.addEventListener('click', () => {
+            // Add click handler for selecting tome
+            card.addEventListener('click', (e) => {
+                // Don't select if clicking banish button
+                if (e.target.classList.contains('tome-banish')) {
+                    return;
+                }
                 this.selectTome(tome);
             });
 
+            // Add banish handler
+            const banishBtn = card.querySelector('.tome-banish');
+            if (banishBtn) {
+                banishBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.banishTome(tome);
+                });
+            }
+
             tomeCardsContainer.appendChild(card);
         });
+
+        // Setup Reroll button
+        if (this.tomeSystem.canReroll()) {
+            rerollButton.style.display = 'inline-block';
+            rerollButton.disabled = false;
+            rerollButton.onclick = () => {
+                if (this.tomeSystem.useReroll()) {
+                    this.renderLevelUpUI(); // Re-render with new tomes
+                }
+            };
+        } else {
+            if (this.metaProgressionSystem && this.metaProgressionSystem.isToolUnlocked('reroll')) {
+                // Show but disable if used up
+                rerollButton.style.display = 'inline-block';
+                rerollButton.disabled = true;
+                rerollButton.textContent = '🔄 Reroll (Used)';
+            } else {
+                rerollButton.style.display = 'none';
+            }
+        }
+
+        // Setup Skip button
+        if (this.tomeSystem.canSkip()) {
+            skipButton.style.display = 'inline-block';
+            skipButton.onclick = () => {
+                this.skipLevelUp();
+            };
+        } else {
+            skipButton.style.display = 'none';
+        }
 
         // Show menu
         this.levelUpMenu.style.display = 'flex';
@@ -437,6 +500,29 @@ export class Game {
         this.lastTime = performance.now();
 
         console.log('[Game] Game resumed');
+    }
+
+    banishTome(tome) {
+        console.log('[Game] Banishing tome:', tome.name);
+
+        if (this.tomeSystem.banishTome(tome.id)) {
+            // Refresh the UI
+            this.renderLevelUpUI();
+        }
+    }
+
+    skipLevelUp() {
+        console.log('[Game] Skipping level up');
+
+        // Hide menu
+        this.levelUpMenu.style.display = 'none';
+
+        // Resume game (level up will be saved for later)
+        this.isPaused = false;
+        this.lastTime = performance.now();
+
+        // TODO: Implement actual skip logic (store level up for later)
+        console.warn('[Game] Skip functionality not fully implemented yet');
     }
 
     update() {

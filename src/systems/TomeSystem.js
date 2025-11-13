@@ -249,14 +249,39 @@ export class TomeSystem {
         this.game = game;
         this.availableTomes = Object.values(TOMES);
         this.playerTomes = {}; // Track how many times each tome was taken
+
+        // Reroll state (per level)
+        this.rerollsUsed = 0;
+        this.maxRerolls = 1; // Can reroll once per level up
     }
 
     getRandomTomes(count = 3) {
+        // Get meta progression system for filtering
+        const metaSystem = this.game.metaProgressionSystem;
+
         // Filter tomes that haven't reached max stacks
-        const eligibleTomes = this.availableTomes.filter(tome => {
+        let eligibleTomes = this.availableTomes.filter(tome => {
             const currentStacks = this.playerTomes[tome.id] || 0;
             return currentStacks < tome.maxStacks;
         });
+
+        // Apply meta-progression filters if available
+        if (metaSystem) {
+            // Filter by unlocked status
+            eligibleTomes = eligibleTomes.filter(tome => {
+                return metaSystem.isTomeUnlocked(tome.id);
+            });
+
+            // Filter by toggler (disabled tomes)
+            eligibleTomes = eligibleTomes.filter(tome => {
+                return !metaSystem.isTomeDisabled(tome.id);
+            });
+
+            // Filter by banish (current run)
+            eligibleTomes = eligibleTomes.filter(tome => {
+                return !metaSystem.isTomeBanished(tome.id);
+            });
+        }
 
         if (eligibleTomes.length === 0) {
             console.warn('[TomeSystem] No eligible tomes available');
@@ -266,6 +291,62 @@ export class TomeSystem {
         // Shuffle and take first 'count' tomes
         const shuffled = [...eligibleTomes].sort(() => Math.random() - 0.5);
         return shuffled.slice(0, Math.min(count, shuffled.length));
+    }
+
+    canReroll() {
+        const metaSystem = this.game.metaProgressionSystem;
+        if (!metaSystem) return false;
+
+        // Check if reroll is unlocked
+        if (!metaSystem.isToolUnlocked('reroll')) return false;
+
+        // Check if rerolls available for this level up
+        return this.rerollsUsed < this.maxRerolls;
+    }
+
+    useReroll() {
+        if (!this.canReroll()) {
+            console.warn('[TomeSystem] Cannot reroll');
+            return false;
+        }
+
+        this.rerollsUsed++;
+        console.log('[TomeSystem] Reroll used:', this.rerollsUsed, '/', this.maxRerolls);
+        return true;
+    }
+
+    resetRerolls() {
+        this.rerollsUsed = 0;
+    }
+
+    canSkip() {
+        const metaSystem = this.game.metaProgressionSystem;
+        if (!metaSystem) return false;
+
+        // Check if skip is unlocked
+        return metaSystem.isToolUnlocked('skip');
+    }
+
+    canBanish() {
+        const metaSystem = this.game.metaProgressionSystem;
+        if (!metaSystem) return false;
+
+        // Check if banish is unlocked
+        return metaSystem.isToolUnlocked('banish');
+    }
+
+    banishTome(tomeId) {
+        const metaSystem = this.game.metaProgressionSystem;
+        if (!metaSystem) return false;
+
+        if (!this.canBanish()) {
+            console.warn('[TomeSystem] Banish not unlocked');
+            return false;
+        }
+
+        metaSystem.banishTome(tomeId);
+        console.log('[TomeSystem] Banished tome:', tomeId);
+        return true;
     }
 
     applyTome(tome) {
@@ -291,6 +372,7 @@ export class TomeSystem {
 
     reset() {
         this.playerTomes = {};
+        this.rerollsUsed = 0;
         console.log('[TomeSystem] Reset');
     }
 }

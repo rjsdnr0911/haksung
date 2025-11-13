@@ -268,7 +268,42 @@ button:active {
 .levelup-subtitle {
     font-size: 1.5em;
     color: #aaa;
-    margin-bottom: 40px;
+    margin-bottom: 20px;
+}
+
+.levelup-tools {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.tool-button {
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: bold;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tool-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: #4a9eff;
+    transform: translateY(-2px);
+}
+
+.tool-button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.tool-button:disabled:hover {
+    transform: none;
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 .tome-cards {
@@ -378,6 +413,30 @@ button:active {
 .tome-rarity.legendary {
     background: rgba(255, 170, 68, 0.3);
     color: #ffaa44;
+}
+
+.tome-banish {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(255, 68, 68, 0.3);
+    border: 2px solid #ff4444;
+    color: #ff4444;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 10;
+}
+
+.tome-banish:hover {
+    background: rgba(255, 68, 68, 0.6);
+    transform: scale(1.1);
 }
 
 /* Responsive */

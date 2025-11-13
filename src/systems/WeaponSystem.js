@@ -156,7 +156,15 @@ export class WeaponSystem {
         if (!slot.currentTarget || !this.game.player) return;
 
         const now = Date.now();
-        if (now - slot.lastFireTime < slot.fireInterval) return;
+
+        // Apply fire rate multiplier from player passives
+        let adjustedInterval = slot.fireInterval;
+        if (this.game.player.getFireRateMultiplier) {
+            const fireRateMult = this.game.player.getFireRateMultiplier();
+            adjustedInterval = slot.fireInterval / fireRateMult; // Higher multiplier = faster firing
+        }
+
+        if (now - slot.lastFireTime < adjustedInterval) return;
 
         this.fire(slot);
         slot.lastFireTime = now;
@@ -228,6 +236,23 @@ export class WeaponSystem {
             console.log(`[WeaponSystem] Dice rolled: ${damage} damage`);
         }
 
+        // Apply damage multiplier from player passives
+        if (this.game.player.getDamageMultiplier) {
+            const damageMult = this.game.player.getDamageMultiplier();
+            damage = Math.floor(damage * damageMult);
+        }
+
+        // Roll for critical hit
+        let isCrit = false;
+        if (this.game.player.getCritChance) {
+            const critChance = this.game.player.getCritChance();
+            if (Math.random() < critChance) {
+                isCrit = true;
+                damage = Math.floor(damage * 2); // 2x damage on crit
+                console.log(`[WeaponSystem] CRITICAL HIT! ${damage} damage`);
+            }
+        }
+
         // Projectile data
         const projectileData = {
             mesh: projectile,
@@ -235,6 +260,7 @@ export class WeaponSystem {
             direction: direction.clone(),
             speed: weapon.projectileSpeed,
             damage: damage,
+            isCrit: isCrit,
             maxDistance: weapon.range,
             distanceTraveled: 0,
             isActive: true,
@@ -338,10 +364,31 @@ export class WeaponSystem {
             const hitRadius = enemy.size * 2.5;
 
             if (distance < hitRadius) {
+                // Check for Backstab passive (Amog)
+                let finalDamage = projectile.damage;
+                if (this.game.player && this.game.player.character &&
+                    this.game.player.character.passive.type === 'backstab') {
+                    // Check if attacking from behind
+                    // If enemy is moving towards player, and we're shooting them, it's a backstab
+                    const toPlayer = this.game.player.position.subtract(enemy.position);
+                    toPlayer.normalize();
+
+                    const projDir = projectile.direction.clone();
+                    projDir.normalize();
+
+                    // Dot product: if > 0.5, enemy is facing away from projectile direction (backstab)
+                    const dot = toPlayer.x * projDir.x + toPlayer.z * projDir.z;
+
+                    if (dot < -0.3) { // Enemy moving away from player = backstab
+                        finalDamage = Math.floor(finalDamage * 2.5); // 2.5x backstab damage
+                        console.log('[WeaponSystem] BACKSTAB! 2.5x damage');
+                    }
+                }
+
                 // Hit!
                 console.log('[WeaponSystem] Hit enemy! Distance:', distance, 'Hitbox radius:', hitRadius);
-                enemy.takeDamage(projectile.damage);
-                totalDamageDealt += projectile.damage;
+                enemy.takeDamage(finalDamage);
+                totalDamageDealt += finalDamage;
                 hitCount++;
 
                 // Check if enemy died
@@ -353,7 +400,7 @@ export class WeaponSystem {
 
                 // Lifesteal effect (blood scythe)
                 if (projectile.lifesteal > 0 && this.game.player) {
-                    const healAmount = Math.floor(projectile.damage * projectile.lifesteal);
+                    const healAmount = Math.floor(finalDamage * projectile.lifesteal);
                     this.game.player.heal(healAmount);
                     console.log(`[WeaponSystem] Lifesteal: ${healAmount} HP`);
                 }
@@ -473,8 +520,12 @@ export class WeaponSystem {
             const distance = BABYLON.Vector3.Distance(this.game.player.position, enemy.position);
 
             if (distance < slot.weapon.range) {
-                // Deal damage
-                enemy.takeDamage(slot.weapon.damage);
+                // Deal damage with multiplier
+                let damage = slot.weapon.damage;
+                if (this.game.player.getDamageMultiplier) {
+                    damage = Math.floor(damage * this.game.player.getDamageMultiplier());
+                }
+                enemy.takeDamage(damage);
 
                 // Apply knockback (push enemy away)
                 if (slot.weapon.knockback) {

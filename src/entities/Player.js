@@ -24,6 +24,19 @@ export class Player {
         // Size modifier from character
         this.sizeMultiplier = characterData ? characterData.stats.size : 1.0;
 
+        // Passive ability tracking
+        this.passiveTimers = {
+            lastHitTime: 0,          // For Speed Demon
+            lastGamblerTime: 0,      // For Gambler's Curse
+            lastOverdriveUpdate: 0   // For Overdrive
+        };
+        this.passiveEffects = {
+            speedBonus: 0,           // Speed Demon speed bonus
+            damageBonus: 0,          // Speed Demon damage bonus
+            gamblerEffect: null,     // Current gambler effect
+            critChance: 0            // Overdrive crit chance
+        };
+
         // Input
         this.moveInput = { x: 0, z: 0 };
 
@@ -140,9 +153,14 @@ export class Player {
     }
 
     update(deltaTime) {
+        // Update passive abilities
+        this.updatePassive(deltaTime);
+
         // Update position based on input
         if (this.moveInput.x !== 0 || this.moveInput.z !== 0) {
-            const moveSpeed = Config.player.moveSpeed * this.speedMultiplier;
+            // Apply passive speed bonus
+            const totalSpeedMultiplier = this.speedMultiplier * (1 + this.passiveEffects.speedBonus);
+            const moveSpeed = Config.player.moveSpeed * totalSpeedMultiplier;
 
             let movement;
 
@@ -267,6 +285,15 @@ export class Player {
         this.health = Math.max(0, this.health - amount);
         console.log(`[Player] Took ${amount} damage, health: ${this.health}/${this.maxHealth}`);
 
+        // Update passive: Speed Demon resets on hit
+        if (this.character && this.character.passive.type === 'speed_demon') {
+            this.passiveTimers.lastHitTime = Date.now();
+            // Reset to 50% bonus
+            this.passiveEffects.speedBonus = this.character.passive.resetOnHit || 0;
+            this.passiveEffects.damageBonus = this.character.passive.resetOnHit || 0;
+            console.log('[Player] Speed Demon reset to 50%');
+        }
+
         if (this.health <= 0) {
             this.die();
         }
@@ -324,6 +351,161 @@ export class Player {
             0,
             Math.cos(this.rotation)
         );
+    }
+
+    updatePassive(deltaTime) {
+        if (!this.character || !this.character.passive) return;
+
+        const passive = this.character.passive;
+        const now = Date.now();
+
+        switch (passive.type) {
+            case 'speed_demon':
+                this.updateSpeedDemon(now, passive);
+                break;
+            case 'gamblers_curse':
+                this.updateGamblersCurse(now, passive);
+                break;
+            case 'overdrive':
+                this.updateOverdrive(now, passive);
+                break;
+            // Backstab is handled in WeaponSystem
+            // Repellent Aura is handled in garlic weapon
+            // Lifesteal is handled in blood_scythe weapon
+        }
+    }
+
+    updateSpeedDemon(now, passive) {
+        // Check if player has been safe for tickInterval
+        const timeSinceHit = now - this.passiveTimers.lastHitTime;
+
+        // If just started, initialize lastHitTime
+        if (this.passiveTimers.lastHitTime === 0) {
+            this.passiveTimers.lastHitTime = now;
+            return;
+        }
+
+        // Every tickInterval (2000ms), increase bonuses
+        const ticksPassed = Math.floor(timeSinceHit / passive.tickInterval);
+
+        if (ticksPassed > 0) {
+            // Calculate current bonus based on ticks
+            const bonusPerTick = passive.speedPerTick; // 0.02 = 2%
+            const maxBonus = passive.maxBonus; // 1.0 = 100%
+
+            this.passiveEffects.speedBonus = Math.min(ticksPassed * bonusPerTick, maxBonus);
+            this.passiveEffects.damageBonus = Math.min(ticksPassed * bonusPerTick, maxBonus);
+        }
+    }
+
+    updateGamblersCurse(now, passive) {
+        // Check if it's time for a new gambler effect
+        if (now - this.passiveTimers.lastGamblerTime >= passive.interval) {
+            this.passiveTimers.lastGamblerTime = now;
+
+            // Remove previous effect if any
+            if (this.passiveEffects.gamblerEffect) {
+                this.removeGamblerEffect(this.passiveEffects.gamblerEffect);
+            }
+
+            // Roll for good or bad effect
+            const isGood = Math.random() < passive.goodChance; // 60% good
+            const effectList = isGood ? passive.goodEffects : passive.badEffects;
+            const effect = effectList[Math.floor(Math.random() * effectList.length)];
+
+            // Apply new effect
+            this.applyGamblerEffect(effect);
+            console.log(`[Player] Gambler's Curse: ${isGood ? 'GOOD' : 'BAD'} effect - ${effect.type}`);
+        }
+
+        // Check if current effect has expired
+        if (this.passiveEffects.gamblerEffect) {
+            const effect = this.passiveEffects.gamblerEffect;
+            if (now - effect.startTime >= effect.duration) {
+                this.removeGamblerEffect(effect);
+                this.passiveEffects.gamblerEffect = null;
+            }
+        }
+    }
+
+    applyGamblerEffect(effect) {
+        const effectCopy = { ...effect, startTime: Date.now() };
+        this.passiveEffects.gamblerEffect = effectCopy;
+
+        // Effects are applied in real-time through getters
+        // For invincibility, we'd need special handling
+        if (effect.type === 'invincible') {
+            this.isInvincible = true;
+            setTimeout(() => {
+                this.isInvincible = false;
+            }, effect.duration);
+        }
+    }
+
+    removeGamblerEffect(effect) {
+        // Effects are removed by clearing gamblerEffect
+        if (effect.type === 'invincible') {
+            this.isInvincible = false;
+        }
+    }
+
+    updateOverdrive(now, passive) {
+        // Gradually increase crit chance over time (every 5 seconds)
+        const timeSinceLastUpdate = now - this.passiveTimers.lastOverdriveUpdate;
+
+        if (this.passiveTimers.lastOverdriveUpdate === 0) {
+            this.passiveTimers.lastOverdriveUpdate = now;
+        }
+
+        if (timeSinceLastUpdate >= 5000) {
+            this.passiveTimers.lastOverdriveUpdate = now;
+
+            // Increase crit chance by 5% every 5 seconds, max 50%
+            this.passiveEffects.critChance = Math.min(
+                this.passiveEffects.critChance + 0.05,
+                passive.maxCritChance || 0.5
+            );
+
+            console.log(`[Player] Overdrive: Crit chance ${(this.passiveEffects.critChance * 100).toFixed(0)}%`);
+        }
+    }
+
+    // Get current damage multiplier (for WeaponSystem)
+    getDamageMultiplier() {
+        let multiplier = 1.0;
+
+        // Speed Demon damage bonus
+        multiplier += this.passiveEffects.damageBonus;
+
+        // Gambler's Curse damage effects
+        if (this.passiveEffects.gamblerEffect) {
+            const effect = this.passiveEffects.gamblerEffect;
+            if (effect.type === 'damage') {
+                multiplier += effect.value;
+            }
+        }
+
+        return multiplier;
+    }
+
+    // Get current fire rate multiplier (for WeaponSystem)
+    getFireRateMultiplier() {
+        let multiplier = 1.0;
+
+        // Gambler's Curse fire rate effects
+        if (this.passiveEffects.gamblerEffect) {
+            const effect = this.passiveEffects.gamblerEffect;
+            if (effect.type === 'fireRate') {
+                multiplier += effect.value;
+            }
+        }
+
+        return multiplier;
+    }
+
+    // Get current crit chance (for WeaponSystem)
+    getCritChance() {
+        return this.passiveEffects.critChance;
     }
 
     dispose() {

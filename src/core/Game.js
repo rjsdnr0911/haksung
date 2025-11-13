@@ -358,6 +358,9 @@ export class Game {
         // Start new run tracking
         this.metaProgressionSystem.startNewRun();
 
+        // Add character's starting weapon (replaces default pistol)
+        this.addCharacterStartingWeapon(characterData);
+
         // Add unlocked weapons to player's arsenal
         this.addUnlockedWeapons();
 
@@ -981,6 +984,21 @@ export class Game {
         });
     }
 
+    addCharacterStartingWeapon(characterData) {
+        // Remove default pistol from WeaponSystem
+        this.weaponSystem.weaponSlots = [];
+
+        // Add character's starting weapon
+        const startingWeapon = characterData.startingWeapon;
+        if (startingWeapon && Config.weapons[startingWeapon]) {
+            this.weaponSystem.addWeapon(startingWeapon);
+            console.log(`[Game] Added character starting weapon: ${startingWeapon}`);
+        } else {
+            console.error(`[Game] Invalid starting weapon: ${startingWeapon}, falling back to pistol`);
+            this.weaponSystem.addWeapon('pistol');
+        }
+    }
+
     addUnlockedWeapons() {
         console.log('[Game] Adding weapons to arsenal...');
 
@@ -991,11 +1009,8 @@ export class Game {
         // All weapons available by default
         const allWeapons = ['pistol', 'shotgun', 'smg', 'laser', 'rocket'];
 
-        // Add weapons up to slot limit (pistol already added by WeaponSystem)
+        // Add weapons up to slot limit (starting weapon already added)
         for (const weaponId of allWeapons) {
-            // Skip pistol (already added in WeaponSystem constructor)
-            if (weaponId === 'pistol') continue;
-
             // Check if weapon is disabled in toggler
             if (this.metaProgressionSystem.isWeaponDisabled(weaponId)) {
                 console.log('[Game] Weapon disabled in toggler:', weaponId);

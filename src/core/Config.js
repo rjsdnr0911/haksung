@@ -117,6 +117,87 @@ export const Config = {
             projectilesPerShot: 1,
             spread: 5,
             icon: '🔫'
+        },
+        // Character-specific weapons
+        bone_throw: {
+            name: 'Bone Throw',
+            damage: 12,
+            fireRate: 2.5,
+            range: 15,
+            projectileSpeed: 20,
+            color: '#f0f0f0',
+            projectilesPerShot: 1,
+            spread: 0,
+            boomerang: true, // Returns and hits again
+            icon: '🦴'
+        },
+        dice_cannon: {
+            name: 'Dice Cannon',
+            damage: 15, // Base damage (will be randomized 5-30)
+            fireRate: 2,
+            range: 14,
+            projectileSpeed: 25,
+            color: '#ffffff',
+            projectilesPerShot: 1,
+            spread: 0,
+            randomDamage: true,
+            damageMin: 5,
+            damageMax: 30,
+            icon: '🎲'
+        },
+        garlic: {
+            name: 'Garlic Aura',
+            damage: 5, // Tick damage
+            fireRate: 5, // Ticks per second
+            range: 5, // Aura radius
+            projectileSpeed: 0, // Not a projectile
+            color: '#e8d4ff',
+            projectilesPerShot: 0,
+            spread: 0,
+            aura: true, // Continuous area effect
+            knockback: 3, // Pushes enemies away
+            icon: '🧄'
+        },
+        blood_scythe: {
+            name: 'Blood Scythe',
+            damage: 18,
+            fireRate: 1.5,
+            range: 10,
+            projectileSpeed: 30,
+            color: '#cc0000',
+            projectilesPerShot: 1,
+            spread: 15, // Slight spread for scythe arc
+            lifesteal: 0.2, // 20% lifesteal
+            icon: '🩸'
+        },
+        poison_cloud: {
+            name: 'Poison Cloud',
+            damage: 8, // Initial hit
+            fireRate: 1,
+            range: 12,
+            projectileSpeed: 15,
+            color: '#00ff88',
+            projectilesPerShot: 1,
+            spread: 0,
+            poisonCloud: true,
+            dotDamage: 15, // Damage over time
+            dotDuration: 3000, // 3 seconds
+            cloudRadius: 3,
+            icon: '☁️'
+        },
+        railgun: {
+            name: 'Railgun',
+            damage: 25,
+            fireRate: 0.8,
+            range: 25,
+            projectileSpeed: 60,
+            color: '#00ccff',
+            projectilesPerShot: 1,
+            spread: 0,
+            piercing: true, // Infinite piercing
+            explosive: true,
+            explosionRadius: 2,
+            icon: '⚡'
         }
     },
 

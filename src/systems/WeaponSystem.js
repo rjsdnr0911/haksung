@@ -6,8 +6,10 @@ export class WeaponSystem {
         this.maxSlots = 6;
         this.weaponSlots = []; // Array of weapon slot objects
 
-        // Add starter weapon (pistol)
-        this.addWeapon('pistol');
+        // Track active DoT effects (for poison clouds)
+        this.activeDots = [];
+
+        // Note: Starting weapon is now added by Game.addCharacterStartingWeapon()
     }
 
     addWeapon(weaponType) {
@@ -38,15 +40,24 @@ export class WeaponSystem {
     }
 
     update(deltaTime) {
-        if (!this.game.player || this.game.enemies.length === 0) return;
+        if (!this.game.player) return;
 
         // Update each weapon slot independently
         for (const slot of this.weaponSlots) {
             this.updateWeaponSlot(slot, deltaTime);
         }
+
+        // Update DoT effects
+        this.updateDotEffects(deltaTime);
     }
 
     updateWeaponSlot(slot, deltaTime) {
+        // Special handling for aura weapons (garlic)
+        if (slot.weapon.aura) {
+            this.updateAuraWeapon(slot);
+            return;
+        }
+
         // Find target for this weapon
         this.findTarget(slot);
 
@@ -210,20 +221,36 @@ export class WeaponSystem {
         material.emissiveColor = BABYLON.Color3.FromHexString(weapon.color);
         projectile.material = material;
 
+        // Calculate damage (randomize if needed)
+        let damage = weapon.damage;
+        if (weapon.randomDamage) {
+            damage = Math.floor(Math.random() * (weapon.damageMax - weapon.damageMin + 1)) + weapon.damageMin;
+            console.log(`[WeaponSystem] Dice rolled: ${damage} damage`);
+        }
+
         // Projectile data
         const projectileData = {
             mesh: projectile,
             position: position.clone(),
             direction: direction.clone(),
             speed: weapon.projectileSpeed,
-            damage: weapon.damage,
+            damage: damage,
             maxDistance: weapon.range,
             distanceTraveled: 0,
             isActive: true,
             piercing: weapon.piercing || false,
             explosive: weapon.explosive || false,
             explosionRadius: weapon.explosionRadius || 0,
-            color: weapon.color
+            color: weapon.color,
+            // New special weapon properties
+            boomerang: weapon.boomerang || false,
+            returning: false, // For boomerang
+            startPos: position.clone(), // For boomerang return
+            lifesteal: weapon.lifesteal || 0,
+            poisonCloud: weapon.poisonCloud || false,
+            dotDamage: weapon.dotDamage || 0,
+            dotDuration: weapon.dotDuration || 0,
+            cloudRadius: weapon.cloudRadius || 0
         };
 
         this.game.projectiles.push(projectileData);
@@ -257,14 +284,38 @@ export class WeaponSystem {
                 continue;
             }
 
+            // Handle boomerang projectiles
+            if (proj.boomerang) {
+                // Check if reached max distance - start returning
+                if (proj.distanceTraveled >= proj.maxDistance && !proj.returning) {
+                    proj.returning = true;
+                    console.log('[WeaponSystem] Bone boomeranging back');
+                }
+
+                // If returning, move towards start position
+                if (proj.returning) {
+                    const toStart = proj.startPos.subtract(proj.position);
+                    const distance = toStart.length();
+
+                    if (distance < 1.0) {
+                        // Reached back to player
+                        proj.isActive = false;
+                        continue;
+                    }
+
+                    toStart.normalize();
+                    proj.direction = toStart;
+                }
+            }
+
             // Move projectile
             const movement = proj.direction.scale(proj.speed * deltaTime);
             proj.position.addInPlace(movement);
             proj.mesh.position = proj.position;
             proj.distanceTraveled += movement.length();
 
-            // Check if exceeded max distance
-            if (proj.distanceTraveled >= proj.maxDistance) {
+            // Check if exceeded max distance (for non-boomerang)
+            if (!proj.boomerang && proj.distanceTraveled >= proj.maxDistance) {
                 proj.isActive = false;
                 continue;
             }
@@ -276,6 +327,7 @@ export class WeaponSystem {
 
     checkProjectileCollision(projectile) {
         let hitCount = 0;
+        let totalDamageDealt = 0;
 
         for (const enemy of this.game.enemies) {
             if (enemy.isDead) continue;
@@ -289,6 +341,7 @@ export class WeaponSystem {
                 // Hit!
                 console.log('[WeaponSystem] Hit enemy! Distance:', distance, 'Hitbox radius:', hitRadius);
                 enemy.takeDamage(projectile.damage);
+                totalDamageDealt += projectile.damage;
                 hitCount++;
 
                 // Check if enemy died
@@ -297,21 +350,38 @@ export class WeaponSystem {
                 }
 
                 // Handle special projectile types
+
+                // Lifesteal effect (blood scythe)
+                if (projectile.lifesteal > 0 && this.game.player) {
+                    const healAmount = Math.floor(projectile.damage * projectile.lifesteal);
+                    this.game.player.heal(healAmount);
+                    console.log(`[WeaponSystem] Lifesteal: ${healAmount} HP`);
+                }
+
+                // Poison cloud effect
+                if (projectile.poisonCloud) {
+                    this.createPoisonCloud(projectile.position, projectile.cloudRadius, projectile.dotDamage, projectile.dotDuration);
+                }
+
                 if (projectile.explosive) {
                     // Create explosion at impact
                     this.createExplosion(projectile.position, projectile.explosionRadius, projectile.damage * 0.5);
-                    projectile.isActive = false;
-                    break;
+                    // Railgun: explosive but still piercing
+                    if (!projectile.piercing) {
+                        projectile.isActive = false;
+                        break;
+                    }
                 }
 
-                if (!projectile.piercing) {
+                if (!projectile.piercing && !projectile.boomerang) {
                     // Normal projectile stops after first hit
                     projectile.isActive = false;
                     break;
-                } else {
+                } else if (projectile.piercing) {
                     // Piercing projectile continues, but reduce damage slightly
                     projectile.damage *= 0.9;
                 }
+                // Boomerang continues through enemies
             }
         }
     }
@@ -389,6 +459,119 @@ export class WeaponSystem {
         this.game.xpOrbs.push(orbData);
     }
 
+    // Aura weapon handling (Garlic)
+    updateAuraWeapon(slot) {
+        if (!this.game.player || this.game.enemies.length === 0) return;
+
+        const now = Date.now();
+        if (now - slot.lastFireTime < slot.fireInterval) return;
+
+        // Damage all enemies in range
+        for (const enemy of this.game.enemies) {
+            if (enemy.isDead) continue;
+
+            const distance = BABYLON.Vector3.Distance(this.game.player.position, enemy.position);
+
+            if (distance < slot.weapon.range) {
+                // Deal damage
+                enemy.takeDamage(slot.weapon.damage);
+
+                // Apply knockback (push enemy away)
+                if (slot.weapon.knockback) {
+                    const pushDirection = enemy.position.subtract(this.game.player.position);
+                    pushDirection.normalize();
+                    const pushForce = slot.weapon.knockback;
+                    enemy.position.addInPlace(pushDirection.scale(pushForce * 0.1));
+                    if (enemy.mesh) {
+                        enemy.mesh.position = enemy.position;
+                    }
+                }
+
+                // Check if enemy died
+                if (enemy.isDead) {
+                    this.onEnemyKilled(enemy);
+                }
+            }
+        }
+
+        slot.lastFireTime = now;
+    }
+
+    // Create poison cloud effect
+    createPoisonCloud(position, radius, dotDamage, duration) {
+        console.log('[WeaponSystem] Creating poison cloud');
+
+        // Visual cloud effect
+        const cloud = BABYLON.MeshBuilder.CreateSphere(
+            'poisonCloud',
+            { diameter: radius * 2, segments: 16 },
+            this.game.scene
+        );
+        cloud.position = position.clone();
+        cloud.position.y = 0.5;
+
+        const material = new BABYLON.StandardMaterial('cloudMat', this.game.scene);
+        material.diffuseColor = new BABYLON.Color3(0, 1, 0.5);
+        material.emissiveColor = new BABYLON.Color3(0, 0.5, 0.3);
+        material.alpha = 0.4;
+        cloud.material = material;
+
+        // Track DoT effect
+        const dotEffect = {
+            mesh: cloud,
+            position: position.clone(),
+            radius: radius,
+            damage: dotDamage,
+            duration: duration,
+            elapsedTime: 0,
+            tickInterval: 500, // Tick every 0.5 seconds
+            lastTickTime: Date.now()
+        };
+
+        this.activeDots.push(dotEffect);
+
+        // Remove cloud after duration
+        setTimeout(() => {
+            cloud.dispose();
+        }, duration);
+    }
+
+    // Update DoT effects
+    updateDotEffects(deltaTime) {
+        const now = Date.now();
+
+        for (let i = this.activeDots.length - 1; i >= 0; i--) {
+            const dot = this.activeDots[i];
+
+            dot.elapsedTime += deltaTime * 1000;
+
+            // Remove expired DoTs
+            if (dot.elapsedTime >= dot.duration) {
+                this.activeDots.splice(i, 1);
+                continue;
+            }
+
+            // Apply damage on tick
+            if (now - dot.lastTickTime >= dot.tickInterval) {
+                for (const enemy of this.game.enemies) {
+                    if (enemy.isDead) continue;
+
+                    const distance = BABYLON.Vector3.Distance(dot.position, enemy.position);
+
+                    if (distance < dot.radius) {
+                        enemy.takeDamage(dot.damage);
+
+                        if (enemy.isDead) {
+                            this.onEnemyKilled(enemy);
+                        }
+                    }
+                }
+
+                dot.lastTickTime = now;
+            }
+        }
+    }
+
     // Get a specific weapon slot for tome upgrades
     getWeaponSlot(index = 0) {
         return this.weaponSlots[index];
@@ -407,5 +590,13 @@ export class WeaponSystem {
             }
         }
         this.game.projectiles = [];
+
+        // Cleanup DoT effects
+        for (const dot of this.activeDots) {
+            if (dot.mesh) {
+                dot.mesh.dispose();
+            }
+        }
+        this.activeDots = [];
     }
 }

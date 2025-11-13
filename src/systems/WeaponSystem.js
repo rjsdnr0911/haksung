@@ -193,8 +193,10 @@ export class WeaponSystem {
             this.createProjectile(startPos, projDirection, slot.weapon);
         }
 
-        // Create muzzle flash effect
-        this.createMuzzleFlash(startPos, slot.weapon.color);
+        // Create muzzle flash particle effect
+        if (this.game.particleSystem) {
+            this.game.particleSystem.createMuzzleFlash(startPos, direction, slot.weapon.color);
+        }
     }
 
     createProjectile(position, direction, weapon) {
@@ -212,9 +214,28 @@ export class WeaponSystem {
         material.emissiveColor = BABYLON.Color3.FromHexString(weapon.color);
         projectile.material = material;
 
+        // Create trail effect
+        const trail = new BABYLON.TrailMesh(
+            'trail',
+            projectile,
+            this.game.scene,
+            0.15, // Diameter
+            30, // Length (number of segments)
+            true // Auto-start
+        );
+
+        // Trail material
+        const trailMaterial = new BABYLON.StandardMaterial('trailMat', this.game.scene);
+        const baseColor = BABYLON.Color3.FromHexString(weapon.color);
+        trailMaterial.emissiveColor = baseColor;
+        trailMaterial.alpha = 0.6;
+        trailMaterial.backFaceCulling = false;
+        trail.material = trailMaterial;
+
         // Projectile data
         const projectileData = {
             mesh: projectile,
+            trail: trail,
             position: position.clone(),
             direction: direction.clone(),
             speed: weapon.projectileSpeed,
@@ -231,30 +252,15 @@ export class WeaponSystem {
         this.game.projectiles.push(projectileData);
     }
 
-    createMuzzleFlash(position, color) {
-        const flash = BABYLON.MeshBuilder.CreateSphere(
-            'flash',
-            { diameter: 0.5, segments: 8 },
-            this.game.scene
-        );
-        flash.position = position.clone();
-
-        const material = new BABYLON.StandardMaterial('flashMat', this.game.scene);
-        material.emissiveColor = BABYLON.Color3.FromHexString(color);
-        flash.material = material;
-
-        // Fade out and dispose
-        setTimeout(() => {
-            flash.dispose();
-        }, 50);
-    }
-
     updateProjectiles(deltaTime) {
         for (let i = this.game.projectiles.length - 1; i >= 0; i--) {
             const proj = this.game.projectiles[i];
 
             if (!proj.isActive) {
                 proj.mesh.dispose();
+                if (proj.trail) {
+                    proj.trail.dispose();
+                }
                 this.game.projectiles.splice(i, 1);
                 continue;
             }
@@ -293,6 +299,16 @@ export class WeaponSystem {
                 enemy.takeDamage(projectile.damage);
                 hitCount++;
 
+                // Create hit particle effect
+                if (this.game.particleSystem) {
+                    this.game.particleSystem.createHitEffect(projectile.position, projectile.color);
+                }
+
+                // Show damage number
+                if (this.game.damageNumberSystem) {
+                    this.game.damageNumberSystem.showDamageNumber(projectile.damage, enemy.position);
+                }
+
                 // Check if enemy died
                 if (enemy.isDead) {
                     this.onEnemyKilled(enemy);
@@ -321,7 +337,12 @@ export class WeaponSystem {
     createExplosion(position, radius, damage) {
         console.log('[WeaponSystem] Explosion at', position, 'radius:', radius);
 
-        // Visual explosion effect
+        // Create explosion particle effect
+        if (this.game.particleSystem) {
+            this.game.particleSystem.createExplosion(position, radius);
+        }
+
+        // Visual explosion flash (quick sphere)
         const explosion = BABYLON.MeshBuilder.CreateSphere(
             'explosion',
             { diameter: radius * 2, segments: 16 },
@@ -344,6 +365,11 @@ export class WeaponSystem {
                 const damageFactor = 1 - (distance / radius);
                 const actualDamage = Math.floor(damage * damageFactor);
                 enemy.takeDamage(actualDamage);
+
+                // Show damage number for explosion
+                if (this.game.damageNumberSystem && actualDamage > 0) {
+                    this.game.damageNumberSystem.showDamageNumber(actualDamage, enemy.position);
+                }
 
                 if (enemy.isDead) {
                     this.onEnemyKilled(enemy);
@@ -401,6 +427,9 @@ export class WeaponSystem {
         for (const proj of this.game.projectiles) {
             if (proj.mesh) {
                 proj.mesh.dispose();
+            }
+            if (proj.trail) {
+                proj.trail.dispose();
             }
         }
         this.game.projectiles = [];

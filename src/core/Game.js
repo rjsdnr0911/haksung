@@ -4,6 +4,8 @@ import { InputSystem } from '../systems/InputSystem.js';
 import { SpawnSystem } from '../systems/SpawnSystem.js';
 import { WeaponSystem } from '../systems/WeaponSystem.js';
 import { TomeSystem } from '../systems/TomeSystem.js';
+import { ParticleSystem } from '../systems/ParticleSystem.js';
+import { DamageNumberSystem } from '../systems/DamageNumberSystem.js';
 
 export class Game {
     constructor(canvas) {
@@ -29,6 +31,8 @@ export class Game {
         this.spawnSystem = null;
         this.weaponSystem = null;
         this.tomeSystem = null;
+        this.particleSystem = null;
+        this.damageNumberSystem = null;
 
         // UI elements
         this.levelUpMenu = null;
@@ -59,6 +63,10 @@ export class Game {
 
         // Setup lighting
         this.setupLighting();
+
+        // Create glow layer for visual effects
+        this.glowLayer = new BABYLON.GlowLayer('glow', this.scene);
+        this.glowLayer.intensity = 0.5;
 
         // Create camera
         this.setupCamera();
@@ -302,6 +310,8 @@ export class Game {
         this.spawnSystem = new SpawnSystem(this);
         this.weaponSystem = new WeaponSystem(this);
         this.tomeSystem = new TomeSystem(this);
+        this.particleSystem = new ParticleSystem(this);
+        this.damageNumberSystem = new DamageNumberSystem(this);
 
         // Get UI elements
         this.levelUpMenu = document.getElementById('levelUpMenu');
@@ -334,6 +344,11 @@ export class Game {
 
     showLevelUpUI() {
         console.log('[Game] Showing level up UI');
+
+        // Create level up particle effect
+        if (this.particleSystem && this.player) {
+            this.particleSystem.createLevelUpEffect(this.player.position);
+        }
 
         // Pause game
         this.isPaused = true;
@@ -407,6 +422,11 @@ export class Game {
         this.updateCamera();
         this.updateHUD();
 
+        // Update visual systems
+        if (this.damageNumberSystem) {
+            this.damageNumberSystem.update(this.deltaTime);
+        }
+
         // Clean up dead entities
         this.cleanupEntities();
     }
@@ -441,6 +461,11 @@ export class Game {
 
             // Collect XP orb
             if (distance < Config.player.radius + 0.5) {
+                // Create XP collect particle effect
+                if (this.particleSystem) {
+                    this.particleSystem.createXPCollectEffect(orb.position);
+                }
+
                 this.player.gainXP(orb.xpValue);
                 orb.mesh.dispose();
                 this.xpOrbs.splice(i, 1);

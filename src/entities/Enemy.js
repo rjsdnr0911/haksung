@@ -1,8 +1,9 @@
 import { Config } from '../core/Config.js';
 
 export class Enemy {
-    constructor(scene, position, type = 'normal') {
+    constructor(scene, position, type = 'normal', game = null) {
         this.scene = scene;
+        this.game = game;
         this.position = position.clone();
         this.type = type;
         this.isDead = false;
@@ -153,6 +154,11 @@ export class Enemy {
 
         this.isDead = true;
         console.log(`[Enemy] ${this.type} died at`, this.position);
+
+        // Create death particle effect
+        if (this.game && this.game.particleSystem) {
+            this.game.particleSystem.createDeathEffect(this.position, this.color);
+        }
 
         // Trigger death animation (simple scale down)
         const animation = new BABYLON.Animation(

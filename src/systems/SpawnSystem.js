@@ -46,7 +46,7 @@ export class SpawnSystem {
         spawnPos.z = Math.max(-halfMapSize, Math.min(halfMapSize, spawnPos.z));
 
         // Create enemy
-        const enemy = new Enemy(this.game.scene, spawnPos, randomType);
+        const enemy = new Enemy(this.game.scene, spawnPos, randomType, this.game);
         enemy.setTarget(this.game.player);
 
         this.game.enemies.push(enemy);

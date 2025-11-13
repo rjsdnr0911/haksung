@@ -281,6 +281,32 @@ export class TomeSystem {
             eligibleTomes = eligibleTomes.filter(tome => {
                 return !metaSystem.isTomeBanished(tome.id);
             });
+
+            // Special filter for weapon unlock tomes
+            eligibleTomes = eligibleTomes.filter(tome => {
+                // Check if this is a weapon unlock tome
+                if (tome.id.startsWith('unlock_')) {
+                    const weaponId = tome.id.replace('unlock_', ''); // e.g., 'unlock_shotgun' -> 'shotgun'
+
+                    // Check if weapon is unlocked in shop
+                    if (!metaSystem.isWeaponUnlocked(weaponId)) {
+                        return false; // Weapon not purchased in shop
+                    }
+
+                    // Check if weapon is toggled off
+                    if (metaSystem.isWeaponDisabled(weaponId)) {
+                        return false; // Weapon disabled in toggler
+                    }
+
+                    // Check if weapon is already in player's build
+                    const hasWeapon = this.game.weaponSystem.weaponSlots.some(slot => slot.type === weaponId);
+                    if (hasWeapon) {
+                        return false; // Already have this weapon
+                    }
+                }
+
+                return true; // Include this tome
+            });
         }
 
         if (eligibleTomes.length === 0) {

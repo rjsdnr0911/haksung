@@ -350,6 +350,9 @@ export class Game {
         // Start new run tracking
         this.metaProgressionSystem.startNewRun();
 
+        // Add unlocked weapons to player's arsenal
+        this.addUnlockedWeapons();
+
         // Get UI elements
         this.levelUpMenu = document.getElementById('levelUpMenu');
         this.hudElements.healthFill = document.getElementById('healthFill');
@@ -803,6 +806,7 @@ export class Game {
         this.populateShopWeapons();
         this.populateShopTools();
         this.populateShopSlots();
+        this.populateToggler();
 
         // Setup tab switching
         const tabs = document.querySelectorAll('.shop-tab');
@@ -1019,6 +1023,137 @@ export class Game {
         };
 
         container.appendChild(item);
+    }
+
+    populateToggler() {
+        const weaponsContainer = document.getElementById('togglerWeapons');
+        const tomesContainer = document.getElementById('togglerTomes');
+
+        // Clear containers
+        weaponsContainer.innerHTML = '';
+        tomesContainer.innerHTML = '';
+
+        // Populate weapons
+        const weaponDefs = {
+            pistol: { name: '🔫 Pistol', description: 'Starting weapon' },
+            shotgun: { name: '💥 Shotgun', description: 'Close-range powerhouse' },
+            smg: { name: '🔫 SMG', description: 'High fire rate' },
+            laser: { name: '⚡ Laser', description: 'Piercing beam' },
+            rocket: { name: '🚀 Rocket', description: 'Explosive damage' }
+        };
+
+        const unlockedWeapons = this.metaProgressionSystem.getUnlockedWeapons();
+        unlockedWeapons.forEach(weaponId => {
+            const weaponDef = weaponDefs[weaponId];
+            if (!weaponDef) return;
+
+            const isEnabled = !this.metaProgressionSystem.isWeaponDisabled(weaponId);
+
+            const item = document.createElement('div');
+            item.className = 'toggler-item';
+            if (!isEnabled) {
+                item.classList.add('disabled');
+            }
+
+            item.innerHTML = `
+                <div>
+                    <div class="toggler-item-name">${weaponDef.name}</div>
+                </div>
+                <div class="toggle-switch ${isEnabled ? 'active' : ''}" data-weapon="${weaponId}"></div>
+            `;
+
+            const toggle = item.querySelector('.toggle-switch');
+            toggle.onclick = () => {
+                this.metaProgressionSystem.toggleWeapon(weaponId);
+                this.populateToggler(); // Refresh
+            };
+
+            weaponsContainer.appendChild(item);
+        });
+
+        if (unlockedWeapons.length === 0) {
+            weaponsContainer.innerHTML = '<p style="text-align: center; color: #888;">No weapons unlocked yet.</p>';
+        }
+
+        // Populate tomes
+        const tomeDefs = {
+            damage_boost: { name: '⚔️ Damage Boost', rarity: 'common' },
+            fire_rate_boost: { name: '🔥 Fire Rate', rarity: 'common' },
+            range_boost: { name: '🎯 Range', rarity: 'common' },
+            projectile_speed: { name: '💨 Speed', rarity: 'common' },
+            max_health_boost: { name: '❤️ Health', rarity: 'common' },
+            heal: { name: '💊 Heal', rarity: 'common' },
+            speed_boost: { name: '⚡ Speed', rarity: 'rare' },
+            xp_magnet: { name: '🧲 Magnet', rarity: 'rare' },
+            multi_shot: { name: '🔫 Multi-shot', rarity: 'epic' },
+            xp_boost: { name: '✨ XP Boost', rarity: 'rare' }
+        };
+
+        // For now, all tomes are unlocked by default
+        // In the future, you can add tome unlock system
+        Object.keys(tomeDefs).forEach(tomeId => {
+            const tomeDef = tomeDefs[tomeId];
+            const isEnabled = !this.metaProgressionSystem.isTomeDisabled(tomeId);
+
+            const item = document.createElement('div');
+            item.className = 'toggler-item';
+            if (!isEnabled) {
+                item.classList.add('disabled');
+            }
+
+            item.innerHTML = `
+                <div>
+                    <div class="toggler-item-name">${tomeDef.name}</div>
+                </div>
+                <div class="toggle-switch ${isEnabled ? 'active' : ''}" data-tome="${tomeId}"></div>
+            `;
+
+            const toggle = item.querySelector('.toggle-switch');
+            toggle.onclick = () => {
+                this.metaProgressionSystem.toggleTome(tomeId);
+                this.populateToggler(); // Refresh
+            };
+
+            tomesContainer.appendChild(item);
+        });
+    }
+
+    addUnlockedWeapons() {
+        console.log('[Game] Adding unlocked weapons to arsenal...');
+
+        // Get unlocked weapons from meta progression
+        const unlockedWeapons = this.metaProgressionSystem.getUnlockedWeapons();
+        console.log('[Game] Unlocked weapons:', unlockedWeapons);
+
+        // Get current weapon slots limit
+        const maxSlots = this.metaProgressionSystem.getWeaponSlots();
+        this.weaponSystem.maxSlots = maxSlots;
+
+        // Add all unlocked weapons (except pistol which is already added)
+        for (const weaponId of unlockedWeapons) {
+            // Skip pistol (already added in WeaponSystem constructor)
+            if (weaponId === 'pistol') continue;
+
+            // Check if weapon is disabled in toggler
+            if (this.metaProgressionSystem.isWeaponDisabled(weaponId)) {
+                console.log('[Game] Weapon disabled in toggler:', weaponId);
+                continue;
+            }
+
+            // Check if we have slots available
+            if (this.weaponSystem.weaponSlots.length >= maxSlots) {
+                console.warn('[Game] Max weapon slots reached, cannot add:', weaponId);
+                break;
+            }
+
+            // Add weapon
+            const added = this.weaponSystem.addWeapon(weaponId);
+            if (added) {
+                console.log('[Game] Added unlocked weapon:', weaponId);
+            }
+        }
+
+        console.log('[Game] Final weapon count:', this.weaponSystem.weaponSlots.length, '/', maxSlots);
     }
 
     // Called when enemy is killed (from WeaponSystem)

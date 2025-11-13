@@ -210,8 +210,10 @@ export class WeaponSystem {
             this.createProjectile(startPos, projDirection, slot.weapon);
         }
 
-        // Create muzzle flash effect
-        this.createMuzzleFlash(startPos, slot.weapon.color);
+        // Create muzzle flash effect with EffectSystem
+        if (this.game.effectSystem) {
+            this.game.effectSystem.createMuzzleFlash(startPos, slot.weapon.color);
+        }
     }
 
     createProjectile(position, direction, weapon) {
@@ -280,24 +282,11 @@ export class WeaponSystem {
         };
 
         this.game.projectiles.push(projectileData);
-    }
 
-    createMuzzleFlash(position, color) {
-        const flash = BABYLON.MeshBuilder.CreateSphere(
-            'flash',
-            { diameter: 0.5, segments: 8 },
-            this.game.scene
-        );
-        flash.position = position.clone();
-
-        const material = new BABYLON.StandardMaterial('flashMat', this.game.scene);
-        material.emissiveColor = BABYLON.Color3.FromHexString(color);
-        flash.material = material;
-
-        // Fade out and dispose
-        setTimeout(() => {
-            flash.dispose();
-        }, 50);
+        // Add projectile trail effect
+        if (this.game.effectSystem && !weapon.aura) {
+            this.game.effectSystem.createProjectileTrail(projectileData, weapon.color);
+        }
     }
 
     updateProjectiles(deltaTime) {
@@ -305,6 +294,10 @@ export class WeaponSystem {
             const proj = this.game.projectiles[i];
 
             if (!proj.isActive) {
+                // Stop particle trail
+                if (this.game.effectSystem) {
+                    this.game.effectSystem.stopProjectileTrail(proj);
+                }
                 proj.mesh.dispose();
                 this.game.projectiles.splice(i, 1);
                 continue;
@@ -391,6 +384,14 @@ export class WeaponSystem {
                 totalDamageDealt += finalDamage;
                 hitCount++;
 
+                // Visual effects
+                if (this.game.effectSystem) {
+                    // Hit effect
+                    this.game.effectSystem.createHitEffect(enemy.position, projectile.isCrit);
+                    // Damage number
+                    this.game.effectSystem.createDamageNumber(enemy.position, finalDamage, projectile.isCrit, false);
+                }
+
                 // Check if enemy died
                 if (enemy.isDead) {
                     this.onEnemyKilled(enemy);
@@ -403,6 +404,11 @@ export class WeaponSystem {
                     const healAmount = Math.floor(finalDamage * projectile.lifesteal);
                     this.game.player.heal(healAmount);
                     console.log(`[WeaponSystem] Lifesteal: ${healAmount} HP`);
+
+                    // Show heal number
+                    if (this.game.effectSystem) {
+                        this.game.effectSystem.createDamageNumber(this.game.player.position, healAmount, false, true);
+                    }
                 }
 
                 // Poison cloud effect
@@ -413,6 +419,18 @@ export class WeaponSystem {
                 if (projectile.explosive) {
                     // Create explosion at impact
                     this.createExplosion(projectile.position, projectile.explosionRadius, projectile.damage * 0.5);
+
+                    // Visual explosion effect
+                    if (this.game.effectSystem) {
+                        this.game.effectSystem.createExplosionParticles(
+                            projectile.position,
+                            projectile.color,
+                            projectile.explosionRadius
+                        );
+                        // Screen shake
+                        this.game.effectSystem.addScreenShake(0.3, 0.2);
+                    }
+
                     // Railgun: explosive but still piercing
                     if (!projectile.piercing) {
                         projectile.isActive = false;

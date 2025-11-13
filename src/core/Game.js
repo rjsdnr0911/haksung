@@ -6,6 +6,7 @@ import { SpawnSystem } from '../systems/SpawnSystem.js';
 import { WeaponSystem } from '../systems/WeaponSystem.js';
 import { TomeSystem } from '../systems/TomeSystem.js';
 import { MetaProgressionSystem } from '../systems/MetaProgressionSystem.js';
+import { EffectSystem } from '../systems/EffectSystem.js';
 import { CHARACTERS } from '../entities/Characters.js';
 
 export class Game {
@@ -38,6 +39,7 @@ export class Game {
         this.weaponSystem = null;
         this.tomeSystem = null;
         this.metaProgressionSystem = null;
+        this.effectSystem = null;
 
         // UI elements
         this.levelUpMenu = null;
@@ -340,6 +342,10 @@ export class Game {
 
         // Setup level up callback
         this.player.onLevelUp = () => {
+            // Level up visual effect
+            if (this.effectSystem) {
+                this.effectSystem.createLevelUpEffect(this.player.position);
+            }
             this.showLevelUpUI();
         };
 
@@ -354,6 +360,7 @@ export class Game {
         this.weaponSystem = new WeaponSystem(this);
         this.tomeSystem = new TomeSystem(this);
         this.metaProgressionSystem = new MetaProgressionSystem();
+        this.effectSystem = new EffectSystem(this);
 
         // Start new run tracking
         this.metaProgressionSystem.startNewRun();
@@ -514,6 +521,7 @@ export class Game {
         this.inputSystem.update();
         this.spawnSystem.update();
         this.weaponSystem.update(this.deltaTime);
+        this.effectSystem.update(this.deltaTime);
 
         // Update game logic
         this.updatePlayer();

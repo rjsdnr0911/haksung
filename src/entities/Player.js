@@ -1,19 +1,28 @@
 import { Config } from '../core/Config.js';
 
 export class Player {
-    constructor(scene, position = BABYLON.Vector3.Zero(), camera = null) {
+    constructor(scene, position = BABYLON.Vector3.Zero(), camera = null, characterData = null) {
         this.scene = scene;
         this.camera = camera;
         this.position = position.clone();
         this.rotation = 0;
         this.velocity = BABYLON.Vector3.Zero();
 
-        // Stats
-        this.maxHealth = Config.player.maxHealth;
+        // Character reference (for passive abilities)
+        this.character = characterData;
+
+        // Stats - Apply character data if provided
+        this.maxHealth = characterData ? characterData.stats.maxHP : Config.player.maxHealth;
         this.health = this.maxHealth;
         this.level = 1;
         this.xp = 0;
         this.xpToNextLevel = Config.progression.baseXPRequired;
+
+        // Movement speed modifier from character
+        this.speedMultiplier = characterData ? (characterData.stats.speed / 6) : 1.0; // 6 is default speed
+
+        // Size modifier from character
+        this.sizeMultiplier = characterData ? characterData.stats.size : 1.0;
 
         // Input
         this.moveInput = { x: 0, z: 0 };
@@ -25,7 +34,12 @@ export class Player {
 
         this.createMesh();
 
-        console.log('[Player] Created at', position);
+        if (characterData) {
+            console.log(`[Player] Created as ${characterData.name} ${characterData.icon} at`, position);
+            console.log(`[Player] Stats: HP=${this.maxHealth}, Speed=${characterData.stats.speed}, Size=${characterData.stats.size}`);
+        } else {
+            console.log('[Player] Created at', position);
+        }
     }
 
     createMesh() {
@@ -33,18 +47,22 @@ export class Player {
         const container = new BABYLON.TransformNode('playerContainer', this.scene);
         this.mesh = container;
 
+        // Apply character size multiplier
+        const radius = Config.player.radius * this.sizeMultiplier;
+        const height = Config.player.height * this.sizeMultiplier;
+
         // Main body (capsule-like cylinder)
         const body = BABYLON.MeshBuilder.CreateCylinder(
             'playerBody',
             {
-                diameter: Config.player.radius * 2,
-                height: Config.player.height,
+                diameter: radius * 2,
+                height: height,
                 tessellation: 16
             },
             this.scene
         );
         body.parent = container;
-        body.position.y = Config.player.height / 2;
+        body.position.y = height / 2;
 
         // Material
         const bodyMat = new BABYLON.StandardMaterial('playerBodyMat', this.scene);
@@ -55,11 +73,11 @@ export class Player {
         // Head (sphere on top)
         const head = BABYLON.MeshBuilder.CreateSphere(
             'playerHead',
-            { diameter: Config.player.radius * 1.2, segments: 12 },
+            { diameter: radius * 1.2, segments: 12 },
             this.scene
         );
         head.parent = container;
-        head.position.y = Config.player.height + Config.player.radius * 0.6;
+        head.position.y = height + radius * 0.6;
         const headMat = new BABYLON.StandardMaterial('playerHeadMat', this.scene);
         headMat.diffuseColor = BABYLON.Color3.FromHexString('#ffcc88'); // Skin tone
         headMat.emissiveColor = new BABYLON.Color3(0.2, 0.15, 0.1);
@@ -70,15 +88,15 @@ export class Player {
             'dirArrow',
             {
                 diameterTop: 0,
-                diameterBottom: Config.player.radius * 0.8,
-                height: 0.8,
+                diameterBottom: radius * 0.8,
+                height: 0.8 * this.sizeMultiplier,
                 tessellation: 8
             },
             this.scene
         );
         arrow.parent = container;
-        arrow.position.y = Config.player.height / 2;
-        arrow.position.z = Config.player.radius * 1.2; // In front
+        arrow.position.y = height / 2;
+        arrow.position.z = radius * 1.2; // In front
         arrow.rotation.x = Math.PI / 2; // Point forward
         const arrowMat = new BABYLON.StandardMaterial('arrowMat', this.scene);
         arrowMat.diffuseColor = BABYLON.Color3.White();
@@ -86,8 +104,8 @@ export class Player {
         arrow.material = arrowMat;
 
         // Arms (simple boxes)
-        const armWidth = 0.15;
-        const armLength = 0.6;
+        const armWidth = 0.15 * this.sizeMultiplier;
+        const armLength = 0.6 * this.sizeMultiplier;
 
         // Left arm
         const leftArm = BABYLON.MeshBuilder.CreateBox(
@@ -96,8 +114,8 @@ export class Player {
             this.scene
         );
         leftArm.parent = container;
-        leftArm.position.x = -Config.player.radius * 0.9;
-        leftArm.position.y = Config.player.height * 0.7;
+        leftArm.position.x = -radius * 0.9;
+        leftArm.position.y = height * 0.7;
         leftArm.material = bodyMat;
 
         // Right arm
@@ -107,8 +125,8 @@ export class Player {
             this.scene
         );
         rightArm.parent = container;
-        rightArm.position.x = Config.player.radius * 0.9;
-        rightArm.position.y = Config.player.height * 0.7;
+        rightArm.position.x = radius * 0.9;
+        rightArm.position.y = height * 0.7;
         rightArm.material = bodyMat;
 
         // Position container
@@ -124,7 +142,7 @@ export class Player {
     update(deltaTime) {
         // Update position based on input
         if (this.moveInput.x !== 0 || this.moveInput.z !== 0) {
-            const moveSpeed = Config.player.moveSpeed;
+            const moveSpeed = Config.player.moveSpeed * this.speedMultiplier;
 
             let movement;
 

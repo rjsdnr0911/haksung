@@ -14,6 +14,9 @@ export class SaveSystem {
             // Currency
             silver: 0,
 
+            // Selected character
+            selectedCharacter: 'calcium', // Default character
+
             // Statistics
             stats: {
                 totalKills: 0,
@@ -84,6 +87,7 @@ export class SaveSystem {
 
         return {
             silver: savedData.silver || 0,
+            selectedCharacter: savedData.selectedCharacter || defaultData.selectedCharacter,
 
             stats: {
                 ...defaultData.stats,

@@ -211,6 +211,24 @@ export class MetaProgressionSystem {
         this.save();
     }
 
+    // ========== Character Management ==========
+
+    /**
+     * Get selected character ID
+     */
+    getSelectedCharacter() {
+        return this.data.selectedCharacter;
+    }
+
+    /**
+     * Set selected character
+     */
+    selectCharacter(characterId) {
+        this.data.selectedCharacter = characterId;
+        this.save();
+        console.log(`[MetaProgression] Selected character: ${characterId}`);
+    }
+
     // ========== Save/Load ==========
 
     save() {

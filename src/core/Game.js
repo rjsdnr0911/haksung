@@ -6,6 +6,7 @@ import { SpawnSystem } from '../systems/SpawnSystem.js';
 import { WeaponSystem } from '../systems/WeaponSystem.js';
 import { TomeSystem } from '../systems/TomeSystem.js';
 import { MetaProgressionSystem } from '../systems/MetaProgressionSystem.js';
+import { CHARACTERS } from '../entities/Characters.js';
 
 export class Game {
     constructor(canvas) {
@@ -322,13 +323,20 @@ export class Game {
         return texture;
     }
 
-    start() {
-        console.log('[Game] Starting game...');
+    start(characterId = 'calcium') {
+        console.log(`[Game] Starting game with character: ${characterId}`);
         this.isRunning = true;
         this.isPaused = false;
 
-        // Create player (pass camera for proper movement direction)
-        this.player = new Player(this.scene, BABYLON.Vector3.Zero(), this.camera);
+        // Get character data
+        const characterData = CHARACTERS[characterId];
+        if (!characterData) {
+            console.error(`[Game] Character not found: ${characterId}, using default`);
+            characterData = CHARACTERS['calcium'];
+        }
+
+        // Create player with character data
+        this.player = new Player(this.scene, BABYLON.Vector3.Zero(), this.camera, characterData);
 
         // Setup level up callback
         this.player.onLevelUp = () => {

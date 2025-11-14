@@ -291,12 +291,14 @@ export class WeaponSystem {
         // Apply character multipliers to weapon stats
         const damageMult = slot.characterDamageMult || 1.0;
         const sizeMult = slot.characterSizeMult || 1.0;
+        const knockbackMult = slot.characterKnockbackMult || 1.0;
 
         // Create modified weapon data with multipliers
         const enhancedWeapon = {
             ...slot.weapon,
             damage: Math.floor(slot.weapon.damage * damageMult), // Apply damage multiplier
-            projectileSize: (slot.weapon.projectileSize || 0.3) * sizeMult // Apply size multiplier
+            projectileSize: (slot.weapon.projectileSize || 0.3) * sizeMult, // Apply size multiplier
+            knockback: (slot.weapon.knockback || 0.5) * knockbackMult // Apply knockback multiplier
         };
 
         // Fire multiple projectiles if multi-shot is enabled
@@ -362,6 +364,7 @@ export class WeaponSystem {
             explosive: weapon.explosive || false,
             explosionRadius: weapon.explosionRadius || 0,
             critChance: weapon.critChance || 0, // Crit chance from weapon
+            knockback: weapon.knockback || 0.5, // Knockback force
             color: weapon.color
         };
 
@@ -436,9 +439,13 @@ export class WeaponSystem {
                     console.log('[WeaponSystem] CRITICAL HIT! Damage:', finalDamage);
                 }
 
-                // Apply damage
-                console.log('[WeaponSystem] Hit enemy! Distance:', distance, 'Hitbox radius:', hitRadius, 'Damage:', finalDamage);
-                enemy.takeDamage(finalDamage);
+                // Calculate knockback
+                const knockbackDirection = projectile.direction.clone();
+                const knockbackForce = projectile.knockback || 0;
+
+                // Apply damage with knockback
+                console.log('[WeaponSystem] Hit enemy! Distance:', distance, 'Hitbox radius:', hitRadius, 'Damage:', finalDamage, 'Knockback:', knockbackForce);
+                enemy.takeDamage(finalDamage, knockbackDirection, knockbackForce);
                 hitCount++;
 
                 // Check if enemy died
@@ -500,7 +507,12 @@ export class WeaponSystem {
                 // Damage falloff based on distance
                 const damageFactor = 1 - (distance / radius);
                 const actualDamage = Math.floor(damage * damageFactor);
-                enemy.takeDamage(actualDamage);
+
+                // Calculate radial knockback from explosion center
+                const knockbackDir = enemy.position.subtract(position);
+                const knockbackForce = 2.0 * damageFactor; // Stronger knockback closer to center
+
+                enemy.takeDamage(actualDamage, knockbackDir, knockbackForce);
 
                 if (enemy.isDead) {
                     this.onEnemyKilled(enemy);

@@ -11,6 +11,9 @@ export class Player {
         // Stats
         this.maxHealth = Config.player.maxHealth;
         this.health = this.maxHealth;
+        this.shield = 0; // Shield absorbs damage before health
+        this.maxShield = 0; // Maximum shield capacity
+        this.evasionChance = 0; // Chance to dodge attacks (0.0 - 1.0)
         this.level = 1;
         this.xp = 0;
         this.xpToNextLevel = Config.progression.baseXPRequired;
@@ -215,8 +218,27 @@ export class Player {
     }
 
     takeDamage(amount) {
-        this.health = Math.max(0, this.health - amount);
-        console.log(`[Player] Took ${amount} damage, health: ${this.health}/${this.maxHealth}`);
+        // Check for evasion
+        if (this.evasionChance > 0 && Math.random() < this.evasionChance) {
+            console.log(`[Player] Evaded ${amount} damage!`);
+            return; // Dodged the attack
+        }
+
+        let remainingDamage = amount;
+
+        // Shield absorbs damage first
+        if (this.shield > 0) {
+            const shieldAbsorbed = Math.min(this.shield, remainingDamage);
+            this.shield -= shieldAbsorbed;
+            remainingDamage -= shieldAbsorbed;
+            console.log(`[Player] Shield absorbed ${shieldAbsorbed} damage (${this.shield}/${this.maxShield} remaining)`);
+        }
+
+        // Apply remaining damage to health
+        if (remainingDamage > 0) {
+            this.health = Math.max(0, this.health - remainingDamage);
+            console.log(`[Player] Took ${remainingDamage} damage, health: ${this.health}/${this.maxHealth}`);
+        }
 
         if (this.health <= 0) {
             this.die();

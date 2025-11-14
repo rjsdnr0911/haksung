@@ -123,10 +123,22 @@ export class Enemy {
         }
     }
 
-    takeDamage(amount) {
+    takeDamage(amount, knockbackDirection = null, knockbackForce = 0) {
         if (this.isDead) return;
 
         this.health -= amount;
+
+        // Apply knockback if provided
+        if (knockbackDirection && knockbackForce > 0) {
+            const knockback = knockbackDirection.clone();
+            knockback.normalize();
+            knockback.y = 0; // Keep on ground
+            this.position.addInPlace(knockback.scale(knockbackForce));
+
+            // Update mesh position immediately
+            this.mesh.position.x = this.position.x;
+            this.mesh.position.z = this.position.z;
+        }
 
         // Flash effect
         this.flashDamage();

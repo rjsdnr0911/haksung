@@ -110,12 +110,21 @@ export class CharacterStats {
         player.maxHealth = hpValue;
         player.health = Math.min(player.health, player.maxHealth);
 
+        // Shield
+        const shieldValue = this.getValue('shield');
+        player.maxShield = shieldValue;
+        player.shield = Math.min(player.shield, player.maxShield);
+
+        // Evasion
+        const evasionValue = this.getValue('evasion');
+        player.evasionChance = Math.min(evasionValue, 0.5); // Cap at 50%
+
         // Move speed (agility)
         const agilityMult = this.getMultiplier('agility');
         player.baseMoveSpeed = 15; // Base speed
         player.moveSpeed = player.baseMoveSpeed * agilityMult;
 
-        console.log(`[CharacterStats] Applied to player - HP: ${hpValue}, Speed: ${player.moveSpeed.toFixed(1)}`);
+        console.log(`[CharacterStats] Applied to player - HP: ${hpValue}, Shield: ${shieldValue}, Evasion: ${(evasionValue*100).toFixed(1)}%, Speed: ${player.moveSpeed.toFixed(1)}`);
     }
 
     // Reset all stats (for new run)

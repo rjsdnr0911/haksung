@@ -122,7 +122,8 @@ export const TOMES = {
         stat: 'gold',
         rarity: 'common',
         icon: '💰',
-        unlocked: true
+        unlocked: false, // Not implemented yet (Phase 7.4)
+        unlockCost: 9
     },
 
     silver: {
@@ -132,7 +133,8 @@ export const TOMES = {
         stat: 'silver',
         rarity: 'common',
         icon: '🪙',
-        unlocked: true
+        unlocked: false, // Not implemented yet (Phase 7.5)
+        unlockCost: 9
     },
 
     // ===== 언락 가능한 Tomes (7개) - 상점에서 해금 =====
@@ -177,7 +179,7 @@ export const TOMES = {
         stat: 'attraction',
         rarity: 'rare',
         icon: '🧲',
-        unlocked: false, // Shop unlock: 9 coins
+        unlocked: false, // Not implemented yet (magnet range is fixed in Config)
         unlockCost: 9
     },
 
@@ -199,7 +201,7 @@ export const TOMES = {
         stat: 'duration',
         rarity: 'rare',
         icon: '⏱️',
-        unlocked: false, // Shop unlock: 9 coins
+        unlocked: false, // Not implemented yet (weapons are instant projectiles)
         unlockCost: 9
     },
 
@@ -267,11 +269,12 @@ export class TomeSystem {
         // Apply to player
         this.characterStats.applyToPlayer(this.game.player);
 
-        // Apply to weapons (damage, cooldown multipliers)
+        // Apply to weapons (damage, cooldown, size, knockback multipliers)
         if (this.game.weaponSystem) {
             const damageMult = this.characterStats.getMultiplier('damage');
             const cooldownMult = this.characterStats.getMultiplier('cooldown');
             const sizeMult = this.characterStats.getMultiplier('size');
+            const knockbackMult = this.characterStats.getMultiplier('knockback');
 
             for (const slot of this.game.weaponSystem.weaponSlots) {
                 // Recalculate weapon stats with character multipliers
@@ -279,13 +282,14 @@ export class TomeSystem {
                 slot.characterDamageMult = damageMult;
                 slot.characterCooldownMult = cooldownMult;
                 slot.characterSizeMult = sizeMult;
+                slot.characterKnockbackMult = knockbackMult;
 
                 // Recalculate fire interval with cooldown multiplier
                 const baseFireInterval = 1000 / slot.weapon.fireRate;
                 slot.fireInterval = baseFireInterval / cooldownMult;
             }
 
-            console.log(`[TomeSystem] Applied multipliers - Damage: ${damageMult.toFixed(2)}x, Cooldown: ${cooldownMult.toFixed(2)}x`);
+            console.log(`[TomeSystem] Applied multipliers - Damage: ${damageMult.toFixed(2)}x, Cooldown: ${cooldownMult.toFixed(2)}x, Knockback: ${knockbackMult.toFixed(2)}x`);
         }
     }
 

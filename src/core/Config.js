@@ -130,8 +130,8 @@ export const Config = {
         },
         shotgun: {
             damage: { base: 8, perLevel: 1, max: 999, desc: '데미지' },
-            pelletCount: { base: 6, perLevel: 1, max: 15, desc: '탄환 개수' },
-            spread: { base: 25, perLevel: -1, max: 10, desc: '집탄율' }, // 감소 (더 좋아짐)
+            pelletCount: { base: 6, perLevel: 1, max: 30, desc: '탄환 개수' },
+            spread: { base: 25, perLevel: -1, max: 5, desc: '집탄율' }, // 감소 (더 좋아짐)
             range: { base: 10, perLevel: 0.5, max: 999, desc: '사거리' }
         },
         smg: {
@@ -143,7 +143,7 @@ export const Config = {
         laser: {
             damage: { base: 10, perLevel: 1.5, max: 999, desc: '데미지' },
             fireRate: { base: 5, perLevel: 0.2, max: 999, desc: '연사속도' },
-            pierceCount: { base: 3, perLevel: 1, max: 10, desc: '관통 횟수' },
+            pierceCount: { base: 3, perLevel: 1, max: 30, desc: '관통 횟수' },
             range: { base: 20, perLevel: 1, max: 999, desc: '사거리' }
         },
         rocket: {

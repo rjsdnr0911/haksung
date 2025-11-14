@@ -1,296 +1,320 @@
-import { Config } from '../core/Config.js';
+import { CharacterStats } from './CharacterStats.js';
 
-// Tome (upgrade) definitions
+// Tome (비전서) definitions - Megabonk style
+// Each Tome upgrades a specific character stat
 export const TOMES = {
-    // Weapon upgrades (apply to all weapons)
-    damage_boost: {
-        id: 'damage_boost',
-        name: '데미지 강화',
-        description: '모든 무기 데미지 +15%',
+    // ===== 기본 Tomes (13개) - 처음부터 사용 가능 =====
+
+    damage: {
+        id: 'damage',
+        name: '데미지 비전서',
+        description: '모든 무기 데미지 +8%',
+        stat: 'damage',
         rarity: 'common',
         icon: '⚔️',
-        maxStacks: 5,
-        apply: (player, game) => {
-            if (!game.weaponSystem) return;
-            const weapons = game.weaponSystem.getAllWeapons();
-            weapons.forEach(slot => {
-                slot.weapon.damage = Math.floor(slot.weapon.damage * 1.15);
-            });
-            console.log('[TomeSystem] All weapons damage increased by 15%');
-        }
+        unlocked: true
     },
 
-    fire_rate_boost: {
-        id: 'fire_rate_boost',
-        name: '연사 강화',
-        description: '모든 무기 연사속도 +20%',
+    cooldown: {
+        id: 'cooldown',
+        name: '공속 비전서',
+        description: '공격 속도 +10%',
+        stat: 'cooldown',
         rarity: 'common',
         icon: '🔥',
-        maxStacks: 5,
-        apply: (player, game) => {
-            if (!game.weaponSystem) return;
-            const weapons = game.weaponSystem.getAllWeapons();
-            weapons.forEach(slot => {
-                slot.weapon.fireRate *= 1.2;
-                slot.fireInterval = 1000 / slot.weapon.fireRate;
-            });
-            console.log('[TomeSystem] All weapons fire rate increased by 20%');
-        }
+        unlocked: true
     },
 
-    range_boost: {
-        id: 'range_boost',
-        name: '사거리 증가',
-        description: '모든 무기 사거리 +30%',
-        rarity: 'common',
-        icon: '🎯',
-        maxStacks: 3,
-        apply: (player, game) => {
-            if (!game.weaponSystem) return;
-            const weapons = game.weaponSystem.getAllWeapons();
-            weapons.forEach(slot => {
-                slot.weapon.range = Math.floor(slot.weapon.range * 1.3);
-            });
-            console.log('[TomeSystem] All weapons range increased by 30%');
-        }
-    },
-
-    projectile_speed: {
-        id: 'projectile_speed',
-        name: '투사체 가속',
-        description: '모든 투사체 속도 +25%',
-        rarity: 'common',
-        icon: '💨',
-        maxStacks: 3,
-        apply: (player, game) => {
-            if (!game.weaponSystem) return;
-            const weapons = game.weaponSystem.getAllWeapons();
-            weapons.forEach(slot => {
-                slot.weapon.projectileSpeed = Math.floor(slot.weapon.projectileSpeed * 1.25);
-            });
-            console.log('[TomeSystem] All projectiles speed increased by 25%');
-        }
-    },
-
-    // Defense upgrades
-    max_health_boost: {
-        id: 'max_health_boost',
-        name: '체력 증가',
+    hp: {
+        id: 'hp',
+        name: '체력 비전서',
         description: '최대 HP +20',
+        stat: 'hp',
         rarity: 'common',
         icon: '❤️',
-        maxStacks: 10,
-        apply: (player, game) => {
-            player.maxHealth += 20;
-            player.health = Math.min(player.health + 20, player.maxHealth);
-            console.log('[TomeSystem] Max health increased to:', player.maxHealth);
-        }
+        unlocked: true
     },
 
-    heal: {
-        id: 'heal',
-        name: '즉시 회복',
-        description: 'HP 50 회복',
+    regen: {
+        id: 'regen',
+        name: '재생 비전서',
+        description: '체력 재생 +2 HP/분',
+        stat: 'regen',
         rarity: 'common',
-        icon: '💊',
-        maxStacks: 999,
-        apply: (player, game) => {
-            player.heal(50);
-            console.log('[TomeSystem] Healed 50 HP');
-        }
+        icon: '💚',
+        unlocked: true
     },
 
-    speed_boost: {
-        id: 'speed_boost',
-        name: '이동속도 증가',
-        description: '이동속도 +15%',
-        rarity: 'rare',
+    shield: {
+        id: 'shield',
+        name: '쉴드 비전서',
+        description: '쉴드 +10',
+        stat: 'shield',
+        rarity: 'common',
+        icon: '🛡️',
+        unlocked: true
+    },
+
+    agility: {
+        id: 'agility',
+        name: '민첩 비전서',
+        description: '이동 속도 +15%',
+        stat: 'agility',
+        rarity: 'common',
         icon: '⚡',
-        maxStacks: 5,
-        apply: (player, game) => {
-            Config.player.moveSpeed *= 1.15;
-            console.log('[TomeSystem] Move speed increased to:', Config.player.moveSpeed);
-        }
+        unlocked: true
     },
 
-    xp_magnet: {
-        id: 'xp_magnet',
-        name: 'XP 자석',
-        description: 'XP 흡수 범위 +50%',
-        rarity: 'rare',
-        icon: '🧲',
-        maxStacks: 3,
-        apply: (player, game) => {
-            Config.progression.magnetRange *= 1.5;
-            console.log('[TomeSystem] Magnet range increased to:', Config.progression.magnetRange);
-        }
+    size: {
+        id: 'size',
+        name: '크기 비전서',
+        description: '투사체 크기 +10%',
+        stat: 'size',
+        rarity: 'common',
+        icon: '📏',
+        unlocked: true
     },
 
-    // Special upgrades
-    multi_shot: {
-        id: 'multi_shot',
-        name: '다중 발사',
-        description: '첫 무기에 +1 발사체',
-        rarity: 'epic',
-        icon: '🔫',
-        maxStacks: 3,
-        apply: (player, game) => {
-            if (!game.weaponSystem) return;
-            const slot = game.weaponSystem.getWeaponSlot(0);
-            if (!slot) return;
-
-            // Increase projectiles per shot
-            slot.weapon.projectilesPerShot = (slot.weapon.projectilesPerShot || 1) + 1;
-
-            // Set or increase spread
-            if (slot.weapon.spread === 0) {
-                slot.weapon.spread = 10;
-            } else {
-                slot.weapon.spread += 5;
-            }
-
-            console.log('[TomeSystem] Multi-shot applied. Projectiles:', slot.weapon.projectilesPerShot, 'Spread:', slot.weapon.spread);
-        }
-    },
-
-    xp_boost: {
-        id: 'xp_boost',
-        name: '경험치 강화',
-        description: 'XP 획득량 +25%',
-        rarity: 'rare',
-        icon: '✨',
-        maxStacks: 4,
-        apply: (player, game) => {
-            Object.keys(Config.enemies.types).forEach(type => {
-                Config.enemies.types[type].xpValue = Math.floor(
-                    Config.enemies.types[type].xpValue * 1.25
-                );
-            });
-            console.log('[TomeSystem] XP gain increased by 25%');
-        }
-    },
-
-    // New weapon unlocks
-    unlock_shotgun: {
-        id: 'unlock_shotgun',
-        name: '샷건 획득',
-        description: '강력한 근거리 샷건 추가',
+    knockback: {
+        id: 'knockback',
+        name: '넉백 비전서',
+        description: '넉백 파워 +15%',
+        stat: 'knockback',
         rarity: 'rare',
         icon: '💥',
-        maxStacks: 1,
-        apply: (player, game) => {
-            if (!game.weaponSystem) return;
-            const added = game.weaponSystem.addWeapon('shotgun');
-            if (added) {
-                console.log('[TomeSystem] Shotgun unlocked!');
-            } else {
-                console.warn('[TomeSystem] Could not add shotgun (max slots?)');
-            }
-        }
+        unlocked: true
     },
 
-    unlock_laser: {
-        id: 'unlock_laser',
-        name: '레이저 획득',
-        description: '관통 레이저 무기 추가',
-        rarity: 'epic',
-        icon: '⚡',
-        maxStacks: 1,
-        apply: (player, game) => {
-            if (!game.weaponSystem) return;
-            const added = game.weaponSystem.addWeapon('laser');
-            if (added) {
-                console.log('[TomeSystem] Laser unlocked!');
-            } else {
-                console.warn('[TomeSystem] Could not add laser (max slots?)');
-            }
-        }
+    projectile: {
+        id: 'projectile',
+        name: '투사체 비전서',
+        description: '투사체 속도 +15%',
+        stat: 'projectile',
+        rarity: 'common',
+        icon: '💨',
+        unlocked: true
     },
 
-    unlock_rocket: {
-        id: 'unlock_rocket',
-        name: '로켓 런처 획득',
-        description: '폭발 범위 데미지 무기',
-        rarity: 'legendary',
-        icon: '🚀',
-        maxStacks: 1,
-        apply: (player, game) => {
-            if (!game.weaponSystem) return;
-            const added = game.weaponSystem.addWeapon('rocket');
-            if (added) {
-                console.log('[TomeSystem] Rocket launcher unlocked!');
-            } else {
-                console.warn('[TomeSystem] Could not add rocket (max slots?)');
-            }
-        }
-    },
-
-    unlock_smg: {
-        id: 'unlock_smg',
-        name: 'SMG 획득',
-        description: '빠른 연사 기관단총 추가',
+    precision: {
+        id: 'precision',
+        name: '정밀 비전서',
+        description: '크리티컬 확률 +5%',
+        stat: 'precision',
         rarity: 'rare',
-        icon: '🔫',
-        maxStacks: 1,
-        apply: (player, game) => {
-            if (!game.weaponSystem) return;
-            const added = game.weaponSystem.addWeapon('smg');
-            if (added) {
-                console.log('[TomeSystem] SMG unlocked!');
-            } else {
-                console.warn('[TomeSystem] Could not add SMG (max slots?)');
-            }
-        }
+        icon: '🎯',
+        unlocked: true
+    },
+
+    evasion: {
+        id: 'evasion',
+        name: '회피 비전서',
+        description: '회피 확률 +3%',
+        stat: 'evasion',
+        rarity: 'rare',
+        icon: '🌪️',
+        unlocked: true
+    },
+
+    gold: {
+        id: 'gold',
+        name: '골드 비전서',
+        description: '골드 획득량 +15%',
+        stat: 'gold',
+        rarity: 'common',
+        icon: '💰',
+        unlocked: true
+    },
+
+    silver: {
+        id: 'silver',
+        name: '실버 비전서',
+        description: '실버 획득량 +15%',
+        stat: 'silver',
+        rarity: 'common',
+        icon: '🪙',
+        unlocked: true
+    },
+
+    // ===== 언락 가능한 Tomes (7개) - 상점에서 해금 =====
+
+    thorns: {
+        id: 'thorns',
+        name: '가시 비전서',
+        description: '피격 시 반사 데미지 +5',
+        stat: 'thorns',
+        rarity: 'rare',
+        icon: '🌵',
+        unlocked: false, // Shop unlock: 9 coins
+        unlockCost: 9
+    },
+
+    quantity: {
+        id: 'quantity',
+        name: '수량 비전서',
+        description: '투사체 개수 +1',
+        stat: 'quantity',
+        rarity: 'epic',
+        icon: '🔢',
+        unlocked: false, // Shop unlock: 9 coins
+        unlockCost: 9
+    },
+
+    lifesteal: {
+        id: 'lifesteal',
+        name: '흡혈 비전서',
+        description: '피해의 3%만큼 체력 회복',
+        stat: 'lifesteal',
+        rarity: 'epic',
+        icon: '🩸',
+        unlocked: false, // Shop unlock: 9 coins
+        unlockCost: 9
+    },
+
+    attraction: {
+        id: 'attraction',
+        name: '자석 비전서',
+        description: 'XP 자석 범위 +30%',
+        stat: 'attraction',
+        rarity: 'rare',
+        icon: '🧲',
+        unlocked: false, // Shop unlock: 9 coins
+        unlockCost: 9
+    },
+
+    armor: {
+        id: 'armor',
+        name: '방어 비전서',
+        description: '데미지 감소 +5%',
+        stat: 'armor',
+        rarity: 'rare',
+        icon: '🛡️',
+        unlocked: false, // Shop unlock: 9 coins
+        unlockCost: 9
+    },
+
+    duration: {
+        id: 'duration',
+        name: '지속 비전서',
+        description: '공격 지속시간 +20%',
+        stat: 'duration',
+        rarity: 'rare',
+        icon: '⏱️',
+        unlocked: false, // Shop unlock: 9 coins
+        unlockCost: 9
+    },
+
+    xp: {
+        id: 'xp',
+        name: 'XP 비전서',
+        description: '경험치 획득량 +10%',
+        stat: 'xp',
+        rarity: 'rare',
+        icon: '✨',
+        unlocked: false, // Shop unlock: 12 coins
+        unlockCost: 12
     }
 };
 
 export class TomeSystem {
     constructor(game) {
         this.game = game;
-        this.availableTomes = Object.values(TOMES);
-        this.playerTomes = {}; // Track how many times each tome was taken
+        this.characterStats = new CharacterStats();
+
+        console.log('[TomeSystem] Initialized with Megabonk style character stats');
     }
 
+    // Get random Tomes for level up selection
     getRandomTomes(count = 3) {
-        // Filter tomes that haven't reached max stacks
-        const eligibleTomes = this.availableTomes.filter(tome => {
-            const currentStacks = this.playerTomes[tome.id] || 0;
-            return currentStacks < tome.maxStacks;
-        });
+        // Filter to unlocked tomes
+        const availableTomes = Object.values(TOMES).filter(tome => tome.unlocked);
 
-        if (eligibleTomes.length === 0) {
-            console.warn('[TomeSystem] No eligible tomes available');
+        if (availableTomes.length === 0) {
+            console.warn('[TomeSystem] No available tomes');
             return [];
         }
 
-        // Shuffle and take first 'count' tomes
-        const shuffled = [...eligibleTomes].sort(() => Math.random() - 0.5);
+        // Shuffle and select
+        const shuffled = [...availableTomes].sort(() => Math.random() - 0.5);
         return shuffled.slice(0, Math.min(count, shuffled.length));
     }
 
+    // Apply a Tome (upgrade its stat)
     applyTome(tome) {
-        if (!tome) {
+        if (!tome || !tome.stat) {
             console.error('[TomeSystem] Invalid tome');
-            return;
+            return false;
         }
 
-        console.log('[TomeSystem] Applying tome:', tome.name);
+        // Upgrade the corresponding character stat
+        const success = this.characterStats.upgrade(tome.stat);
 
-        // Track tome usage
-        this.playerTomes[tome.id] = (this.playerTomes[tome.id] || 0) + 1;
+        if (success) {
+            const statLevel = this.characterStats.getLevel(tome.stat);
+            const display = this.characterStats.getDisplayString(tome.stat);
+            console.log(`[TomeSystem] Applied ${tome.name}: ${display}`);
 
-        // Apply tome effect
-        tome.apply(this.game.player, this.game);
+            // Apply stats to player immediately
+            this.applyToPlayer();
+        }
 
-        console.log('[TomeSystem] Tome applied. Stacks:', this.playerTomes[tome.id]);
+        return success;
     }
 
-    getTomeStacks(tomeId) {
-        return this.playerTomes[tomeId] || 0;
+    // Apply character stats to player and weapons
+    applyToPlayer() {
+        if (!this.game.player) return;
+
+        // Apply to player
+        this.characterStats.applyToPlayer(this.game.player);
+
+        // Apply to weapons (damage, cooldown multipliers)
+        if (this.game.weaponSystem) {
+            const damageMult = this.characterStats.getMultiplier('damage');
+            const cooldownMult = this.characterStats.getMultiplier('cooldown');
+            const sizeMult = this.characterStats.getMultiplier('size');
+
+            for (const slot of this.game.weaponSystem.weaponSlots) {
+                // Recalculate weapon stats with character multipliers
+                // Note: This will be applied during fire() in WeaponSystem
+                slot.characterDamageMult = damageMult;
+                slot.characterCooldownMult = cooldownMult;
+                slot.characterSizeMult = sizeMult;
+
+                // Recalculate fire interval with cooldown multiplier
+                const baseFireInterval = 1000 / slot.weapon.fireRate;
+                slot.fireInterval = baseFireInterval / cooldownMult;
+            }
+
+            console.log(`[TomeSystem] Applied multipliers - Damage: ${damageMult.toFixed(2)}x, Cooldown: ${cooldownMult.toFixed(2)}x`);
+        }
     }
 
+    // Unlock a Tome (shop feature)
+    unlockTome(tomeId) {
+        const tome = TOMES[tomeId];
+        if (!tome) {
+            console.error('[TomeSystem] Unknown tome:', tomeId);
+            return false;
+        }
+
+        if (tome.unlocked) {
+            console.warn('[TomeSystem] Tome already unlocked:', tomeId);
+            return false;
+        }
+
+        tome.unlocked = true;
+        console.log('[TomeSystem] Unlocked tome:', tome.name);
+        return true;
+    }
+
+    // Get stats summary
+    getStatsSummary() {
+        return this.characterStats.getSummary();
+    }
+
+    // Reset for new run
     reset() {
-        this.playerTomes = {};
-        console.log('[TomeSystem] Reset');
+        this.characterStats.reset();
+        console.log('[TomeSystem] Reset for new run');
     }
 }

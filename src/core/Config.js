@@ -120,6 +120,40 @@ export const Config = {
         }
     },
 
+    // Weapon upgrade stats (Megabonk style)
+    weaponUpgrades: {
+        pistol: {
+            damage: { base: 15, perLevel: 2, max: 999, desc: '데미지' },
+            fireRate: { base: 3, perLevel: 0.15, max: 999, desc: '연사속도' },
+            range: { base: 15, perLevel: 1, max: 999, desc: '사거리' },
+            critChance: { base: 0, perLevel: 0.03, max: 0.5, desc: '크리티컬 확률' }
+        },
+        shotgun: {
+            damage: { base: 8, perLevel: 1, max: 999, desc: '데미지' },
+            pelletCount: { base: 6, perLevel: 1, max: 15, desc: '탄환 개수' },
+            spread: { base: 25, perLevel: -1, max: 10, desc: '집탄율' }, // 감소 (더 좋아짐)
+            range: { base: 10, perLevel: 0.5, max: 999, desc: '사거리' }
+        },
+        smg: {
+            damage: { base: 8, perLevel: 1, max: 999, desc: '데미지' },
+            fireRate: { base: 8, perLevel: 0.3, max: 999, desc: '연사속도' },
+            spread: { base: 5, perLevel: -0.2, max: 0.5, desc: '정확도' }, // 감소
+            range: { base: 12, perLevel: 0.5, max: 999, desc: '사거리' }
+        },
+        laser: {
+            damage: { base: 10, perLevel: 1.5, max: 999, desc: '데미지' },
+            fireRate: { base: 5, perLevel: 0.2, max: 999, desc: '연사속도' },
+            pierceCount: { base: 3, perLevel: 1, max: 10, desc: '관통 횟수' },
+            range: { base: 20, perLevel: 1, max: 999, desc: '사거리' }
+        },
+        rocket: {
+            damage: { base: 50, perLevel: 5, max: 999, desc: '데미지' },
+            explosionRadius: { base: 3, perLevel: 0.2, max: 10, desc: '폭발 범위' },
+            fireRate: { base: 0.5, perLevel: 0.05, max: 3, desc: '연사속도' },
+            range: { base: 18, perLevel: 1, max: 999, desc: '사거리' }
+        }
+    },
+
     // XP and leveling
     progression: {
         baseXPRequired: 50,

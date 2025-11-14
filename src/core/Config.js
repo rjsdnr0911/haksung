@@ -28,8 +28,8 @@ export const Config = {
 
     // Enemy settings
     enemies: {
-        spawnInterval: 2000, // ms
-        maxCount: 50,
+        spawnInterval: 800, // ms (2000 -> 800으로 대폭 감소, 더 빠른 스폰)
+        maxCount: 150, // 50 -> 150으로 증가 (화면에 더 많은 적)
         types: {
             normal: {
                 health: 30,

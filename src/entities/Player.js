@@ -1,9 +1,10 @@
 import { Config } from '../core/Config.js';
 
 export class Player {
-    constructor(scene, position = BABYLON.Vector3.Zero(), camera = null, characterData = null) {
+    constructor(scene, position = BABYLON.Vector3.Zero(), camera = null, characterData = null, game = null) {
         this.scene = scene;
         this.camera = camera;
+        this.game = game; // Reference to game for accessing enemies
         this.position = position.clone();
         this.rotation = 0;
         this.velocity = BABYLON.Vector3.Zero();
@@ -28,7 +29,8 @@ export class Player {
         this.passiveTimers = {
             lastHitTime: 0,          // For Speed Demon
             lastGamblerTime: 0,      // For Gambler's Curse
-            lastOverdriveUpdate: 0   // For Overdrive
+            lastOverdriveUpdate: 0,  // For Overdrive
+            lastGarlicTick: 0        // For Garlic Aura
         };
         this.passiveEffects = {
             speedBonus: 0,           // Speed Demon speed bonus
@@ -578,8 +580,10 @@ export class Player {
             case 'overdrive':
                 this.updateOverdrive(now, passive);
                 break;
+            case 'garlic_aura':
+                this.updateGarlicAura(now, passive);
+                break;
             // Backstab is handled in WeaponSystem
-            // Repellent Aura is handled in garlic weapon
             // Lifesteal is handled in blood_scythe weapon
         }
     }
@@ -742,6 +746,50 @@ export class Player {
             );
 
             console.log(`[Player] Overdrive: Crit chance ${(this.passiveEffects.critChance * 100).toFixed(0)}%`);
+        }
+    }
+
+    updateGarlicAura(now, passive) {
+        // Garlic Aura: Deal damage to all enemies within range every tickRate
+        if (!this.game || !this.game.enemies) return;
+
+        // Initialize timer if needed
+        if (this.passiveTimers.lastGarlicTick === 0) {
+            this.passiveTimers.lastGarlicTick = now;
+            return;
+        }
+
+        // Check if enough time has passed for next tick
+        const tickInterval = (passive.tickRate || 0.5) * 1000; // Convert to ms
+        const timeSinceTick = now - this.passiveTimers.lastGarlicTick;
+
+        if (timeSinceTick >= tickInterval) {
+            this.passiveTimers.lastGarlicTick = now;
+
+            // Calculate scaled range and damage
+            const currentRange = passive.baseRange + (passive.rangePerLevel * this.level);
+            const currentDamage = passive.baseDamage * (1 + passive.damagePerLevel * this.level);
+
+            // Find and damage enemies within range
+            let hitCount = 0;
+            this.game.enemies.forEach(enemy => {
+                if (!enemy.mesh) return;
+
+                const distance = BABYLON.Vector3.Distance(this.position, enemy.position);
+                if (distance <= currentRange) {
+                    enemy.takeDamage(currentDamage);
+                    hitCount++;
+
+                    // Optional: Add visual effect for aura hit
+                    if (this.game.effectSystem) {
+                        this.game.effectSystem.createHitEffect(enemy.position, '#e8d4ff');
+                    }
+                }
+            });
+
+            if (hitCount > 0) {
+                console.log(`[Player] Garlic Aura: Hit ${hitCount} enemies for ${currentDamage.toFixed(1)} damage (range: ${currentRange.toFixed(1)})`);
+            }
         }
     }
 

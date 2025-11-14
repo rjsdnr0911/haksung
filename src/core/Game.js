@@ -344,7 +344,7 @@ export class Game {
         }
 
         // Create player with character data
-        this.player = new Player(this.scene, BABYLON.Vector3.Zero(), this.camera, characterData);
+        this.player = new Player(this.scene, BABYLON.Vector3.Zero(), this.camera, characterData, this);
 
         // Setup level up callback
         this.player.onLevelUp = () => {

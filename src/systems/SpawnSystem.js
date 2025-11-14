@@ -8,18 +8,54 @@ export class SpawnSystem {
         this.spawnInterval = Config.enemies.spawnInterval;
         this.maxEnemies = Config.enemies.maxCount;
         this.spawnDistance = Config.map.size / 2 - 5; // Spawn at edge of map
+        this.gameStartTime = Date.now();
+        this.lastDifficultyIncrease = 0;
     }
 
     update() {
         const now = Date.now();
 
+        // Increase difficulty over time (every 30 seconds)
+        const gameTime = (now - this.gameStartTime) / 1000; // seconds
+        if (gameTime - this.lastDifficultyIncrease >= 30) {
+            this.increaseDifficulty();
+            this.lastDifficultyIncrease = gameTime;
+        }
+
+        // Determine how many enemies to spawn based on time
+        const spawnCount = this.getSpawnCount(gameTime);
+
         // Check if we should spawn
         if (now - this.lastSpawnTime >= this.spawnInterval) {
             if (this.game.enemies.length < this.maxEnemies) {
-                this.spawnEnemy();
+                // Spawn multiple enemies at once if needed
+                for (let i = 0; i < spawnCount; i++) {
+                    if (this.game.enemies.length < this.maxEnemies) {
+                        this.spawnEnemy();
+                    }
+                }
                 this.lastSpawnTime = now;
             }
         }
+    }
+
+    getSpawnCount(gameTime) {
+        // Start with 1 enemy per spawn
+        // After 1 minute: 2 enemies
+        // After 2 minutes: 3 enemies
+        // After 3 minutes: 4 enemies
+        // etc.
+        return Math.min(Math.floor(gameTime / 60) + 1, 5); // Max 5 enemies per spawn
+    }
+
+    increaseDifficulty() {
+        // Reduce spawn interval by 10% (faster spawning)
+        this.spawnInterval = Math.max(300, this.spawnInterval * 0.9);
+
+        // Increase max enemy count by 20
+        this.maxEnemies += 20;
+
+        console.log(`[SpawnSystem] Difficulty increased! Interval: ${this.spawnInterval}ms, Max: ${this.maxEnemies}`);
     }
 
     spawnEnemy() {

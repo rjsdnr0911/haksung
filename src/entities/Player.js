@@ -23,16 +23,79 @@ export class Player {
         this.isGrounded = true;
         this.groundLevel = 0; // Ground height at current position
 
-        this.createMesh();
+        // Animation
+        this.animationGroups = null;
+        this.currentAnimation = null;
+        this.isMoving = false;
 
         console.log('[Player] Created at', position);
     }
 
-    createMesh() {
+    async init() {
+        await this.createMesh();
+        console.log('[Player] Initialized');
+    }
+
+    async createMesh() {
         // Create parent container
         const container = new BABYLON.TransformNode('playerContainer', this.scene);
         this.mesh = container;
 
+        try {
+            // Load the walking animation GLB model
+            const result = await BABYLON.SceneLoader.ImportMeshAsync(
+                '',
+                'assets/models/characters/',
+                'Animation_Walking_withSkin.glb',
+                this.scene
+            );
+
+            console.log('[Player] GLB model loaded successfully');
+
+            // Parent all loaded meshes to the container
+            result.meshes.forEach(mesh => {
+                if (mesh !== result.meshes[0]) { // Skip root mesh
+                    mesh.parent = container;
+                }
+            });
+
+            // Store animation groups
+            this.animationGroups = result.animationGroups;
+
+            // Scale the model to match player size
+            const scaleFactor = Config.player.height / 2; // Adjust as needed
+            container.scaling = new BABYLON.Vector3(scaleFactor, scaleFactor, scaleFactor);
+
+            // Start playing the walking animation
+            if (this.animationGroups && this.animationGroups.length > 0) {
+                this.animationGroups.forEach(ag => {
+                    ag.stop();
+                });
+                // Play the first animation (should be walking)
+                this.currentAnimation = this.animationGroups[0];
+                this.currentAnimation.start(true, 1.0, 0, this.currentAnimation.to, false);
+                console.log('[Player] Walking animation started');
+            }
+
+        } catch (error) {
+            console.error('[Player] Failed to load GLB model:', error);
+
+            // Fallback to procedural character
+            this.createProceduralMesh(container);
+        }
+
+        // Position container
+        container.position = this.position.clone();
+        container.position.y = 0;
+        container.rotation.y = this.rotation;
+
+        container.checkCollisions = false;
+
+        console.log('[Player] Character created');
+    }
+
+    createProceduralMesh(container) {
+        // Fallback procedural character (original code)
         // Main body (capsule-like cylinder)
         const body = BABYLON.MeshBuilder.CreateCylinder(
             'playerBody',
@@ -111,14 +174,7 @@ export class Player {
         rightArm.position.y = Config.player.height * 0.7;
         rightArm.material = bodyMat;
 
-        // Position container
-        container.position = this.position.clone();
-        container.position.y = 0;
-        container.rotation.y = this.rotation;
-
-        container.checkCollisions = false;
-
-        console.log('[Player] Procedural character created');
+        console.log('[Player] Procedural character created as fallback');
     }
 
     update(deltaTime) {

@@ -50,7 +50,13 @@ export class Game {
             xpText: null,
             levelText: null,
             enemyCount: null,
-            timeText: null
+            timeText: null,
+            passiveDisplay: null,
+            passiveIcon: null,
+            passiveName: null,
+            passiveGauge: null,
+            passiveValue: null,
+            buffsDisplay: null
         };
         this.startTime = 0;
     }
@@ -380,6 +386,15 @@ export class Game {
         this.hudElements.levelText = document.getElementById('levelText');
         this.hudElements.enemyCount = document.getElementById('enemyCount');
         this.hudElements.timeText = document.getElementById('timeText');
+        this.hudElements.passiveDisplay = document.getElementById('passiveDisplay');
+        this.hudElements.passiveIcon = document.getElementById('passiveIcon');
+        this.hudElements.passiveName = document.getElementById('passiveName');
+        this.hudElements.passiveGauge = document.getElementById('passiveGauge');
+        this.hudElements.passiveValue = document.getElementById('passiveValue');
+        this.hudElements.buffsDisplay = document.getElementById('buffsDisplay');
+
+        // Initialize passive display if character has passive ability
+        this.initializePassiveDisplay();
 
         // Create portal
         this.createPortal();
@@ -710,6 +725,147 @@ export class Game {
             const minutes = Math.floor(elapsed / 60);
             const seconds = elapsed % 60;
             this.hudElements.timeText.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // Update passive ability display
+        this.updatePassiveDisplay();
+
+        // Update buffs/debuffs display
+        this.updateBuffsDisplay();
+    }
+
+    initializePassiveDisplay() {
+        if (!this.player || !this.player.character || !this.player.character.passive) {
+            if (this.hudElements.passiveDisplay) {
+                this.hudElements.passiveDisplay.style.display = 'none';
+            }
+            return;
+        }
+
+        const passive = this.player.character.passive;
+        const character = this.player.character;
+
+        // Show passive display
+        if (this.hudElements.passiveDisplay) {
+            this.hudElements.passiveDisplay.style.display = 'flex';
+        }
+
+        // Set passive icon and name
+        if (this.hudElements.passiveIcon) {
+            this.hudElements.passiveIcon.textContent = character.icon;
+        }
+        if (this.hudElements.passiveName) {
+            this.hudElements.passiveName.textContent = passive.name;
+        }
+    }
+
+    updatePassiveDisplay() {
+        if (!this.player || !this.player.character || !this.player.character.passive) return;
+
+        const passive = this.player.character.passive;
+        const effects = this.player.passiveEffects;
+
+        let gaugePercent = 0;
+        let valueText = '';
+        let gaugeColor = 'linear-gradient(90deg, #4a9eff, #66ccff)';
+
+        switch (passive.type) {
+            case 'speed_demon':
+                gaugePercent = (effects.speedBonus / (passive.maxBonus || 1.0)) * 100;
+                valueText = `+${Math.floor(effects.speedBonus * 100)}% Speed/Dmg`;
+                gaugeColor = 'linear-gradient(90deg, #4a9eff, #66ccff)';
+                break;
+
+            case 'critical_core':
+                const maxCrit = passive.maxCritChance || 0.5;
+                gaugePercent = (effects.critChance / maxCrit) * 100;
+                valueText = `${Math.floor(effects.critChance * 100)}% Crit`;
+                // Color shifts from blue to yellow
+                const r = Math.floor((effects.critChance / maxCrit) * 255);
+                const g = 255;
+                const b = Math.floor((1 - effects.critChance / maxCrit) * 255);
+                gaugeColor = `linear-gradient(90deg, rgb(${r}, ${g}, ${b}), rgb(${Math.min(r + 50, 255)}, ${g}, ${Math.max(b - 50, 0)}))`;
+                break;
+
+            case 'gamblers_curse':
+                // No gauge for gambler, show current effect in buffs instead
+                if (this.hudElements.passiveGauge) {
+                    this.hudElements.passiveGauge.parentElement.style.display = 'none';
+                }
+                if (this.hudElements.passiveValue) {
+                    this.hudElements.passiveValue.textContent = 'Random Effect';
+                }
+                return;
+        }
+
+        // Update gauge
+        if (this.hudElements.passiveGauge) {
+            this.hudElements.passiveGauge.style.width = `${gaugePercent}%`;
+            this.hudElements.passiveGauge.style.background = gaugeColor;
+        }
+
+        // Update value text
+        if (this.hudElements.passiveValue) {
+            this.hudElements.passiveValue.textContent = valueText;
+        }
+    }
+
+    updateBuffsDisplay() {
+        if (!this.player || !this.hudElements.buffsDisplay) return;
+
+        const buffsContainer = this.hudElements.buffsDisplay;
+
+        // Clear existing buffs
+        buffsContainer.innerHTML = '';
+
+        // Gambler's Curse effect
+        if (this.player.character?.passive.type === 'gamblers_curse') {
+            const effect = this.player.passiveEffects.gamblerEffect;
+            if (effect) {
+                const buffIcon = document.createElement('div');
+                buffIcon.className = 'buff-icon';
+
+                // Determine if good or bad
+                const isGood = effect.value > 0 || effect.type === 'invincible';
+                buffIcon.classList.add(isGood ? 'good' : 'bad');
+
+                // Emoji based on effect type
+                const emojiMap = {
+                    damage: isGood ? '⚔️' : '🔻',
+                    speed: isGood ? '⚡' : '🐌',
+                    fireRate: '🔫',
+                    invincible: '🛡️',
+                    slow: '❄️'
+                };
+
+                const emoji = document.createElement('div');
+                emoji.className = 'buff-emoji';
+                emoji.textContent = emojiMap[effect.type] || '🎲';
+                buffIcon.appendChild(emoji);
+
+                // Timer
+                const now = Date.now();
+                const remaining = Math.max(0, Math.ceil((effect.duration - (now - effect.startTime)) / 1000));
+                if (remaining > 0) {
+                    const timer = document.createElement('div');
+                    timer.className = 'buff-timer';
+                    timer.textContent = `${remaining}s`;
+                    buffIcon.appendChild(timer);
+                }
+
+                buffsContainer.appendChild(buffIcon);
+            }
+        }
+
+        // Invincibility (if active)
+        if (this.player.isInvincible) {
+            const buffIcon = document.createElement('div');
+            buffIcon.className = 'buff-icon neutral';
+            const emoji = document.createElement('div');
+            emoji.className = 'buff-emoji';
+            emoji.textContent = '✨';
+            buffIcon.appendChild(emoji);
+            buffsContainer.appendChild(buffIcon);
         }
     }
 

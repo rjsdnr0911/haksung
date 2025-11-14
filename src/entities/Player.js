@@ -238,21 +238,21 @@ export class Player {
     /**
      * Load Calcium 3D GLB model with Walking and Running animations
      */
-    async loadCalciumModel(container, radius, height) {
+    loadCalciumModel(container, radius, height) {
         try {
-            // Load Walking animation model
-            const walkingPath = './assets/models/characters/Animation_Walking_withSkin.glb';
-            const runningPath = './assets/models/characters/Animation_Running_withSkin.glb';
-
             console.log('[Player] Loading Calcium 3D model...');
 
-            // Load Walking model (primary model)
-            BABYLON.SceneLoader.ImportMesh(
-                '',
-                '',
-                walkingPath,
-                this.scene,
-                (meshes, particleSystems, skeletons, animationGroups) => {
+            // Use ImportMeshAsync (Promise-based) - correct Babylon.js way
+            BABYLON.SceneLoader.ImportMeshAsync(
+                '', // meshNames - empty string loads all
+                './assets/models/characters/', // rootUrl
+                'Animation_Walking_withSkin.glb', // sceneFilename
+                this.scene
+            ).then((result) => {
+                const meshes = result.meshes;
+                const particleSystems = result.particleSystems;
+                const skeletons = result.skeletons;
+                const animationGroups = result.animationGroups;
                     console.log('[Player] Walking model loaded successfully');
                     console.log('[Player] Debug info:', {
                         meshCount: meshes.length,
@@ -350,12 +350,15 @@ export class Player {
                     }
 
                     // Load Running animation model (for running animation only)
-                    BABYLON.SceneLoader.ImportMesh(
+                    BABYLON.SceneLoader.ImportMeshAsync(
                         '',
-                        '',
-                        runningPath,
-                        this.scene,
-                        (runMeshes, runParticleSystems, runSkeletons, runAnimationGroups) => {
+                        './assets/models/characters/',
+                        'Animation_Running_withSkin.glb',
+                        this.scene
+                    ).then((runResult) => {
+                        const runMeshes = runResult.meshes;
+                        const runSkeletons = runResult.skeletons;
+                        const runAnimationGroups = runResult.animationGroups;
                             console.log('[Player] Running animation loaded');
 
                             // Hide running model meshes (we only need the animation)
@@ -383,21 +386,15 @@ export class Player {
 
                             // Start with walking animation
                             this.playAnimation('walking');
-                        },
-                        null,
-                        (scene, message, exception) => {
-                            console.warn('[Player] Failed to load running animation, using walking only:', message);
-                        }
-                    );
-                },
-                null,
-                (scene, message, exception) => {
-                    console.error('[Player] Failed to load Calcium 3D model:', message);
-                    console.log('[Player] Using procedural fallback mesh');
-                }
-            );
+                    }).catch((error) => {
+                        console.warn('[Player] Failed to load running animation, using walking only:', error);
+                    });
+            }).catch((error) => {
+                console.error('[Player] Failed to load Calcium 3D model:', error);
+                console.log('[Player] Using procedural fallback mesh');
+            });
         } catch (error) {
-            console.error('[Player] Error loading Calcium model:', error);
+            console.error('[Player] Error in loadCalciumModel:', error);
             console.log('[Player] Using procedural fallback mesh');
         }
     }

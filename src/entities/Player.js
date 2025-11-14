@@ -37,6 +37,13 @@ export class Player {
             critChance: 0            // Overdrive crit chance
         };
 
+        // Visual effect elements for passives
+        this.passiveVisuals = {
+            speedDemonGlow: null,    // Glow effect for Speed Demon
+            gamblerIndicator: null,  // Indicator for Gambler's Curse
+            overdriveGauge: null     // Visual gauge for Overdrive
+        };
+
         // Input
         this.moveInput = { x: 0, z: 0 };
 
@@ -204,12 +211,84 @@ export class Player {
 
         container.checkCollisions = false;
 
+        // Create passive ability visual indicators
+        this.createPassiveVisuals(container, radius, height);
+
         console.log('[Player] Procedural character created');
+    }
+
+    createPassiveVisuals(container, radius, height) {
+        if (!this.character || !this.character.passive) return;
+
+        const passiveType = this.character.passive.type;
+
+        // Speed Demon: Glowing ring that intensifies with stacks
+        if (passiveType === 'speed_demon') {
+            const ring = BABYLON.MeshBuilder.CreateTorus(
+                'speedDemonRing',
+                { diameter: radius * 3, thickness: 0.08, tessellation: 24 },
+                this.scene
+            );
+            ring.parent = container;
+            ring.position.y = height * 0.3;
+            ring.rotation.x = Math.PI / 2; // Horizontal
+
+            const ringMat = new BABYLON.StandardMaterial('speedDemonMat', this.scene);
+            ringMat.emissiveColor = new BABYLON.Color3(0.3, 0.8, 1.0); // Cyan
+            ringMat.alpha = 0; // Start invisible
+            ringMat.disableLighting = true;
+            ring.material = ringMat;
+
+            this.passiveVisuals.speedDemonGlow = { mesh: ring, material: ringMat };
+        }
+
+        // Gambler's Curse: Floating indicator above head
+        else if (passiveType === 'gamblers_curse') {
+            const indicator = BABYLON.MeshBuilder.CreateSphere(
+                'gamblerIndicator',
+                { diameter: radius * 0.6, segments: 12 },
+                this.scene
+            );
+            indicator.parent = container;
+            indicator.position.y = height + radius * 1.5; // Above head
+
+            const indMat = new BABYLON.StandardMaterial('gamblerMat', this.scene);
+            indMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5); // Neutral gray
+            indMat.alpha = 0; // Start invisible
+            indMat.disableLighting = true;
+            indicator.material = indMat;
+
+            this.passiveVisuals.gamblerIndicator = { mesh: indicator, material: indMat };
+        }
+
+        // Overdrive (CL4NK): Charging bars on body
+        else if (passiveType === 'critical_core') {
+            const gauge = BABYLON.MeshBuilder.CreateBox(
+                'overdriveGauge',
+                { width: radius * 0.3, height: height * 0.6, depth: radius * 0.15 },
+                this.scene
+            );
+            gauge.parent = container;
+            gauge.position.y = height / 2;
+            gauge.position.x = radius * 1.1; // Side of body
+            gauge.scaling.y = 0; // Start at 0% filled
+
+            const gaugeMat = new BABYLON.StandardMaterial('overdriveMat', this.scene);
+            gaugeMat.emissiveColor = new BABYLON.Color3(0, 1, 1); // Cyan
+            gaugeMat.alpha = 0.7;
+            gaugeMat.disableLighting = true;
+            gauge.material = gaugeMat;
+
+            this.passiveVisuals.overdriveGauge = { mesh: gauge, material: gaugeMat, maxHeight: height * 0.6 };
+        }
     }
 
     update(deltaTime) {
         // Update passive abilities
         this.updatePassive(deltaTime);
+
+        // Update passive visual effects
+        this.updatePassiveVisuals();
 
         // Update position based on input
         if (this.moveInput.x !== 0 || this.moveInput.z !== 0) {
@@ -340,6 +419,9 @@ export class Player {
         this.health = Math.max(0, this.health - amount);
         console.log(`[Player] Took ${amount} damage, health: ${this.health}/${this.maxHealth}`);
 
+        // Visual feedback: Flash red
+        this.flashDamage();
+
         // Update passive: Speed Demon resets on hit
         if (this.character && this.character.passive.type === 'speed_demon') {
             this.passiveTimers.lastHitTime = Date.now();
@@ -352,6 +434,36 @@ export class Player {
         if (this.health <= 0) {
             this.die();
         }
+    }
+
+    flashDamage() {
+        // Flash the body red briefly
+        if (!this.bodyMaterial) return;
+
+        const originalEmissive = this.bodyMaterial.emissiveColor.clone();
+
+        // Set to red
+        this.bodyMaterial.emissiveColor = new BABYLON.Color3(1, 0.2, 0.2);
+
+        // Fade back to original over 200ms
+        let elapsed = 0;
+        const flashDuration = 200;
+        const flashInterval = setInterval(() => {
+            elapsed += 16;
+            const progress = elapsed / flashDuration;
+
+            if (progress >= 1) {
+                this.bodyMaterial.emissiveColor = originalEmissive;
+                clearInterval(flashInterval);
+            } else {
+                // Lerp between red and original
+                this.bodyMaterial.emissiveColor = BABYLON.Color3.Lerp(
+                    new BABYLON.Color3(1, 0.2, 0.2),
+                    originalEmissive,
+                    progress
+                );
+            }
+        }, 16);
     }
 
     heal(amount) {
@@ -427,6 +539,72 @@ export class Player {
             // Backstab is handled in WeaponSystem
             // Repellent Aura is handled in garlic weapon
             // Lifesteal is handled in blood_scythe weapon
+        }
+    }
+
+    updatePassiveVisuals() {
+        if (!this.character || !this.character.passive) return;
+
+        const passiveType = this.character.passive.type;
+
+        // Speed Demon: Update ring glow based on speed bonus
+        if (passiveType === 'speed_demon' && this.passiveVisuals.speedDemonGlow) {
+            const { material, mesh } = this.passiveVisuals.speedDemonGlow;
+            const bonus = this.passiveEffects.speedBonus; // 0 to 1.0
+
+            // Alpha fades in/out based on bonus level
+            material.alpha = Math.min(bonus * 0.8, 0.6); // Max 60% alpha
+
+            // Emissive intensity increases with bonus
+            const intensity = 0.3 + bonus * 0.7; // 0.3 to 1.0
+            material.emissiveColor = new BABYLON.Color3(0.3, 0.8, 1.0).scale(intensity);
+
+            // Rotate the ring for visual effect
+            mesh.rotation.z += 0.02;
+        }
+
+        // Gambler's Curse: Update indicator color based on current effect
+        else if (passiveType === 'gamblers_curse' && this.passiveVisuals.gamblerIndicator) {
+            const { material, mesh } = this.passiveVisuals.gamblerIndicator;
+            const effect = this.passiveEffects.gamblerEffect;
+
+            if (effect) {
+                material.alpha = 0.8;
+
+                // Good effects: Green
+                if (effect.value > 0 || effect.type === 'invincible') {
+                    material.emissiveColor = new BABYLON.Color3(0.2, 1.0, 0.2); // Green
+                }
+                // Bad effects: Red
+                else {
+                    material.emissiveColor = new BABYLON.Color3(1.0, 0.2, 0.2); // Red
+                }
+
+                // Bob up and down
+                const time = Date.now() / 1000;
+                mesh.position.y = (this.character.stats.size * Config.player.height) +
+                                   (this.character.stats.size * Config.player.radius * 1.5) +
+                                   Math.sin(time * 3) * 0.1;
+            } else {
+                material.alpha = 0; // Hide when no effect
+            }
+        }
+
+        // Overdrive: Update gauge fill based on crit chance
+        else if (passiveType === 'critical_core' && this.passiveVisuals.overdriveGauge) {
+            const { mesh, material } = this.passiveVisuals.overdriveGauge;
+            const critChance = this.passiveEffects.critChance; // 0 to 0.5
+            const maxCritChance = this.character.passive.maxCritChance || 0.5;
+
+            // Scale gauge fill based on crit chance percentage
+            const fillPercent = critChance / maxCritChance; // 0 to 1
+            mesh.scaling.y = fillPercent;
+
+            // Color shifts from blue to yellow as it fills
+            const r = fillPercent * 1.0;
+            const g = 1.0;
+            const b = 1.0 - fillPercent;
+            material.emissiveColor = new BABYLON.Color3(r, g, b);
         }
     }
 

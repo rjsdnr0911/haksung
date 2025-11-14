@@ -509,7 +509,49 @@ export class Player {
 
     die() {
         console.log('[Player] Died');
-        this.onDeath();
+
+        // Play death animation before calling onDeath
+        this.playDeathAnimation();
+
+        // Delay onDeath callback to let animation play
+        setTimeout(() => {
+            this.onDeath();
+        }, 1000);
+    }
+
+    playDeathAnimation() {
+        if (!this.mesh) return;
+
+        // Fade out and shrink animation
+        let elapsed = 0;
+        const duration = 1000; // 1 second
+
+        const deathInterval = setInterval(() => {
+            elapsed += 16;
+            const progress = elapsed / duration;
+
+            if (progress >= 1) {
+                clearInterval(deathInterval);
+                // Completely hide the mesh
+                this.mesh.scaling = new BABYLON.Vector3(0, 0, 0);
+            } else {
+                // Shrink and sink into ground
+                const scale = 1 - progress;
+                this.mesh.scaling = new BABYLON.Vector3(scale, scale, scale);
+                this.mesh.position.y = this.position.y - (progress * 2); // Sink down
+
+                // Fade materials
+                if (this.bodyMaterial) {
+                    this.bodyMaterial.alpha = 1 - progress;
+                }
+                if (this.headMaterial) {
+                    this.headMaterial.alpha = 1 - progress;
+                }
+
+                // Rotate for dramatic effect
+                this.mesh.rotation.x = progress * Math.PI;
+            }
+        }, 16);
     }
 
     getForwardDirection() {

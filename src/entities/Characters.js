@@ -16,6 +16,12 @@ export const CHARACTERS = {
             size: 0.9
         },
 
+        visual: {
+            bodyColor: '#e8e8e8',    // Bone white
+            headColor: '#f0f0f0',     // Lighter bone white
+            emissiveScale: 0.2        // Subtle glow
+        },
+
         startingWeapon: 'bone_throw',
         startingSlots: 2,
 
@@ -44,6 +50,13 @@ export const CHARACTERS = {
             maxHP: 100,
             speed: 8,
             size: 1.0
+        },
+
+        visual: {
+            bodyColor: '#f0f0f0',     // White dice
+            headColor: '#ffffff',      // White
+            emissiveScale: 0.3,        // Moderate glow
+            accentColor: '#2a2a2a'     // Black dots
         },
 
         startingWeapon: 'dice_cannon',
@@ -83,6 +96,12 @@ export const CHARACTERS = {
             size: 1.0
         },
 
+        visual: {
+            bodyColor: '#e8d4ff',     // Light purple (garlic skin)
+            headColor: '#f0e8ff',      // Lighter purple
+            emissiveScale: 0.4         // Moderate glow for aura effect
+        },
+
         startingWeapon: 'garlic_aura', // 특수: 오라가 무기 역할
         startingSlots: 3, // 오라는 슬롯 차지 안 함
 
@@ -112,6 +131,13 @@ export const CHARACTERS = {
             size: 1.0
         },
 
+        visual: {
+            bodyColor: '#3a0a0a',     // Dark red (vampire cloak)
+            headColor: '#e8d8d0',      // Pale vampire skin
+            emissiveScale: 0.5,        // Blood glow
+            accentColor: '#cc0000'     // Blood red
+        },
+
         startingWeapon: 'blood_scythe',
         startingSlots: 2,
 
@@ -137,6 +163,13 @@ export const CHARACTERS = {
             maxHP: 95,
             speed: 8,
             size: 0.8
+        },
+
+        visual: {
+            bodyColor: '#c9302c',     // Among Us red
+            headColor: '#7fc8f8',      // Cyan visor
+            emissiveScale: 0.3,        // Moderate glow
+            accentColor: '#7fc8f8'     // Cyan for visor
         },
 
         startingWeapon: 'poison_cloud',
@@ -165,6 +198,13 @@ export const CHARACTERS = {
             maxHP: 90,
             speed: 8,
             size: 1.0
+        },
+
+        visual: {
+            bodyColor: '#6a7f8a',     // Metallic gray
+            headColor: '#404a50',      // Darker gray
+            emissiveScale: 0.6,        // Strong glow (robotic)
+            accentColor: '#00ccff'     // Cyan circuits
         },
 
         startingWeapon: 'railgun',

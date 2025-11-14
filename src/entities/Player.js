@@ -64,6 +64,13 @@ export class Player {
         const radius = Config.player.radius * this.sizeMultiplier;
         const height = Config.player.height * this.sizeMultiplier;
 
+        // Get character colors or use defaults
+        const visual = this.character?.visual;
+        const bodyColor = visual?.bodyColor || Config.player.color;
+        const headColor = visual?.headColor || '#ffcc88';
+        const emissiveScale = visual?.emissiveScale || 0.3;
+        const accentColor = visual?.accentColor;
+
         // Main body (capsule-like cylinder)
         const body = BABYLON.MeshBuilder.CreateCylinder(
             'playerBody',
@@ -77,11 +84,11 @@ export class Player {
         body.parent = container;
         body.position.y = height / 2;
 
-        // Material
-        const bodyMat = new BABYLON.StandardMaterial('playerBodyMat', this.scene);
-        bodyMat.diffuseColor = BABYLON.Color3.FromHexString(Config.player.color);
-        bodyMat.emissiveColor = BABYLON.Color3.FromHexString(Config.player.color).scale(0.3);
-        body.material = bodyMat;
+        // Material - store reference for passive effects
+        this.bodyMaterial = new BABYLON.StandardMaterial('playerBodyMat', this.scene);
+        this.bodyMaterial.diffuseColor = BABYLON.Color3.FromHexString(bodyColor);
+        this.bodyMaterial.emissiveColor = BABYLON.Color3.FromHexString(bodyColor).scale(emissiveScale);
+        body.material = this.bodyMaterial;
 
         // Head (sphere on top)
         const head = BABYLON.MeshBuilder.CreateSphere(
@@ -91,10 +98,58 @@ export class Player {
         );
         head.parent = container;
         head.position.y = height + radius * 0.6;
-        const headMat = new BABYLON.StandardMaterial('playerHeadMat', this.scene);
-        headMat.diffuseColor = BABYLON.Color3.FromHexString('#ffcc88'); // Skin tone
-        headMat.emissiveColor = new BABYLON.Color3(0.2, 0.15, 0.1);
-        head.material = headMat;
+        this.headMaterial = new BABYLON.StandardMaterial('playerHeadMat', this.scene);
+        this.headMaterial.diffuseColor = BABYLON.Color3.FromHexString(headColor);
+        this.headMaterial.emissiveColor = BABYLON.Color3.FromHexString(headColor).scale(emissiveScale * 0.5);
+        head.material = this.headMaterial;
+
+        // Character-specific accent elements
+        if (accentColor) {
+            // For Amog: Cyan visor on head
+            if (this.character?.id === 'amog') {
+                const visor = BABYLON.MeshBuilder.CreateBox(
+                    'visor',
+                    { width: radius * 1.8, height: radius * 0.4, depth: radius * 0.2 },
+                    this.scene
+                );
+                visor.parent = container;
+                visor.position.y = height + radius * 0.6; // Same height as head
+                visor.position.z = radius * 0.5; // In front of head
+                const visorMat = new BABYLON.StandardMaterial('visorMat', this.scene);
+                visorMat.diffuseColor = BABYLON.Color3.FromHexString(accentColor);
+                visorMat.emissiveColor = BABYLON.Color3.FromHexString(accentColor).scale(0.6);
+                visor.material = visorMat;
+            }
+            // For CL4NK: Cyan circuit lines on body
+            else if (this.character?.id === 'cl4nk') {
+                const circuit = BABYLON.MeshBuilder.CreateBox(
+                    'circuit',
+                    { width: radius * 0.2, height: height * 0.8, depth: radius * 0.2 },
+                    this.scene
+                );
+                circuit.parent = container;
+                circuit.position.y = height / 2;
+                circuit.position.z = radius * 0.9; // Front of body
+                const circuitMat = new BABYLON.StandardMaterial('circuitMat', this.scene);
+                circuitMat.diffuseColor = BABYLON.Color3.FromHexString(accentColor);
+                circuitMat.emissiveColor = BABYLON.Color3.FromHexString(accentColor).scale(0.8);
+                circuit.material = circuitMat;
+            }
+            // For Vlad: Blood accent on arms/body
+            else if (this.character?.id === 'vlad') {
+                const bloodAccent = BABYLON.MeshBuilder.CreateBox(
+                    'bloodAccent',
+                    { width: radius * 1.5, height: radius * 0.3, depth: radius * 0.3 },
+                    this.scene
+                );
+                bloodAccent.parent = container;
+                bloodAccent.position.y = height * 0.4; // Lower body
+                const bloodMat = new BABYLON.StandardMaterial('bloodMat', this.scene);
+                bloodMat.diffuseColor = BABYLON.Color3.FromHexString(accentColor);
+                bloodMat.emissiveColor = BABYLON.Color3.FromHexString(accentColor).scale(0.5);
+                bloodAccent.material = bloodMat;
+            }
+        }
 
         // Direction indicator (cone/arrow)
         const arrow = BABYLON.MeshBuilder.CreateCylinder(
@@ -129,7 +184,7 @@ export class Player {
         leftArm.parent = container;
         leftArm.position.x = -radius * 0.9;
         leftArm.position.y = height * 0.7;
-        leftArm.material = bodyMat;
+        leftArm.material = this.bodyMaterial;
 
         // Right arm
         const rightArm = BABYLON.MeshBuilder.CreateBox(
@@ -140,7 +195,7 @@ export class Player {
         rightArm.parent = container;
         rightArm.position.x = radius * 0.9;
         rightArm.position.y = height * 0.7;
-        rightArm.material = bodyMat;
+        rightArm.material = this.bodyMaterial;
 
         // Position container
         container.position = this.position.clone();

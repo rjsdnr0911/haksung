@@ -3,8 +3,8 @@ import { Config } from '../core/Config.js';
 export class WeaponSystem {
     constructor(game) {
         this.game = game;
-        this.maxSlots = 2; // Megabonk style: start with 2 slots
-        this.unlockedSlots = 2; // Can be increased to 4 in shop
+        this.maxSlots = 4; // Megabonk style: start with 4 slots
+        this.unlockedSlots = 4; // Can be increased to 4 in shop
         this.weaponSlots = []; // Array of weapon slot objects
 
         // Add starter weapon (pistol)

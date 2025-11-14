@@ -303,6 +303,9 @@ export class Game {
         this.weaponSystem = new WeaponSystem(this);
         this.tomeSystem = new TomeSystem(this);
 
+        // Apply initial character stats to player and weapons
+        this.tomeSystem.applyToPlayer();
+
         // Get UI elements
         this.levelUpMenu = document.getElementById('levelUpMenu');
         this.hudElements.healthFill = document.getElementById('healthFill');
@@ -364,6 +367,15 @@ export class Game {
                     <div class="tome-description">${upgrade.upgradeText}</div>
                     <div class="upgrade-preview">${upgrade.preview}</div>
                 `;
+            } else if (upgrade.type === 'newWeapon') {
+                // New weapon card
+                card.innerHTML = `
+                    <div class="tome-rarity ${upgrade.rarity}">${upgrade.rarity}</div>
+                    <div class="tome-icon">${upgrade.icon}</div>
+                    <div class="tome-name">${upgrade.name}</div>
+                    <div class="tome-description">${upgrade.description}</div>
+                    <div class="upgrade-preview">${upgrade.preview}</div>
+                `;
             } else {
                 // Tome card
                 card.innerHTML = `
@@ -412,8 +424,11 @@ export class Game {
             };
         });
 
+        // Generate new weapon choices (if slots available)
+        const newWeaponChoices = this.generateNewWeaponChoices();
+
         // Combine and shuffle
-        const allChoices = [...weaponUpgrades, ...tomeChoices];
+        const allChoices = [...weaponUpgrades, ...tomeChoices, ...newWeaponChoices];
         const shuffled = allChoices.sort(() => Math.random() - 0.5);
 
         // Return first 'count' choices
@@ -489,6 +504,56 @@ export class Game {
         return upgrades;
     }
 
+    generateNewWeaponChoices() {
+        const choices = [];
+
+        // Check if we have available slots
+        if (this.weaponSystem.weaponSlots.length >= this.weaponSystem.maxSlots) {
+            return choices; // No slots available
+        }
+
+        // Get weapons we don't have yet
+        const allWeaponTypes = Object.keys(Config.weapons);
+        const ownedWeaponTypes = this.weaponSystem.weaponSlots.map(slot => slot.type);
+        const availableWeapons = allWeaponTypes.filter(type => !ownedWeaponTypes.includes(type));
+
+        // Randomly select 1-2 weapons to offer (if available)
+        const numToOffer = Math.min(2, availableWeapons.length);
+        const shuffledWeapons = [...availableWeapons].sort(() => Math.random() - 0.5);
+        const weaponsToOffer = shuffledWeapons.slice(0, numToOffer);
+
+        for (const weaponType of weaponsToOffer) {
+            const weaponConfig = Config.weapons[weaponType];
+            const upgradeConfig = Config.weaponUpgrades[weaponType];
+
+            // Get first 2-3 stat descriptions to preview
+            const statDescriptions = Object.entries(upgradeConfig)
+                .slice(0, 3)
+                .map(([statName, stat]) => {
+                    let valueStr;
+                    if (stat.perLevel >= 1) {
+                        valueStr = Math.floor(stat.base);
+                    } else {
+                        valueStr = stat.base.toFixed(2);
+                    }
+                    return `${stat.desc}: ${valueStr}`;
+                })
+                .join('\n');
+
+            choices.push({
+                type: 'newWeapon',
+                weaponType: weaponType,
+                rarity: 'epic', // New weapons are epic rarity
+                icon: weaponConfig.icon,
+                name: `새 무기: ${weaponConfig.name}`,
+                description: statDescriptions,
+                preview: '무기 슬롯에 추가됩니다'
+            });
+        }
+
+        return choices;
+    }
+
     selectUpgrade(upgrade) {
         console.log('[Game] Upgrade selected:', upgrade);
 
@@ -500,6 +565,14 @@ export class Game {
         } else if (upgrade.type === 'tome') {
             // Apply tome
             this.tomeSystem.applyTome(upgrade.tome);
+        } else if (upgrade.type === 'newWeapon') {
+            // Add new weapon
+            const success = this.weaponSystem.addWeapon(upgrade.weaponType);
+            if (success) {
+                console.log('[Game] New weapon acquired:', upgrade.name);
+            } else {
+                console.error('[Game] Failed to add weapon:', upgrade.weaponType);
+            }
         }
 
         // Hide menu

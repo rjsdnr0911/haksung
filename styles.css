@@ -347,6 +347,16 @@ button:active {
     font-size: 1.1em;
     color: #ccc;
     line-height: 1.4;
+    white-space: pre-line; /* Allow line breaks */
+}
+
+.upgrade-preview {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 0.9em;
+    color: #4a9eff;
+    font-weight: bold;
 }
 
 .tome-rarity {

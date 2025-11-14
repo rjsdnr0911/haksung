@@ -333,37 +333,51 @@ export class Game {
     }
 
     showLevelUpUI() {
-        console.log('[Game] Showing level up UI');
+        console.log('[Game] Showing level up UI (Megabonk style)');
 
         // Pause game
         this.isPaused = true;
 
-        // Get 3 random tomes
-        const tomes = this.tomeSystem.getRandomTomes(3);
+        // Generate upgrade choices (weapon upgrades + tomes)
+        const upgradeChoices = this.generateUpgradeChoices(3);
 
-        if (tomes.length === 0) {
-            console.warn('[Game] No tomes available, resuming game');
+        if (upgradeChoices.length === 0) {
+            console.warn('[Game] No upgrades available, resuming game');
             this.isPaused = false;
             return;
         }
 
-        // Create tome cards
+        // Create upgrade cards
         const tomeCardsContainer = document.getElementById('tomeCards');
         tomeCardsContainer.innerHTML = ''; // Clear previous cards
 
-        tomes.forEach(tome => {
+        upgradeChoices.forEach(upgrade => {
             const card = document.createElement('div');
-            card.className = `tome-card ${tome.rarity}`;
-            card.innerHTML = `
-                <div class="tome-rarity ${tome.rarity}">${tome.rarity}</div>
-                <div class="tome-icon">${tome.icon}</div>
-                <div class="tome-name">${tome.name}</div>
-                <div class="tome-description">${tome.description}</div>
-            `;
+            card.className = `tome-card ${upgrade.rarity}`;
+
+            if (upgrade.type === 'weapon') {
+                // Weapon upgrade card
+                card.innerHTML = `
+                    <div class="tome-rarity ${upgrade.rarity}">${upgrade.rarity}</div>
+                    <div class="tome-icon">${upgrade.weaponIcon}</div>
+                    <div class="tome-name">${upgrade.weaponName} Lv.${upgrade.weaponLevel}</div>
+                    <div class="tome-description">${upgrade.upgradeText}</div>
+                    <div class="upgrade-preview">${upgrade.preview}</div>
+                `;
+            } else {
+                // Tome card
+                card.innerHTML = `
+                    <div class="tome-rarity ${upgrade.rarity}">${upgrade.rarity}</div>
+                    <div class="tome-icon">${upgrade.icon}</div>
+                    <div class="tome-name">${upgrade.name}</div>
+                    <div class="tome-description">${upgrade.description}</div>
+                    <div class="upgrade-preview">${upgrade.preview || ''}</div>
+                `;
+            }
 
             // Add click handler
             card.addEventListener('click', () => {
-                this.selectTome(tome);
+                this.selectUpgrade(upgrade);
             });
 
             tomeCardsContainer.appendChild(card);
@@ -373,11 +387,120 @@ export class Game {
         this.levelUpMenu.style.display = 'flex';
     }
 
-    selectTome(tome) {
-        console.log('[Game] Tome selected:', tome.name);
+    generateUpgradeChoices(count) {
+        const choices = [];
 
-        // Apply tome
-        this.tomeSystem.applyTome(tome);
+        // Generate weapon upgrade choices (2-4 options)
+        const weaponUpgrades = this.generateWeaponUpgrades();
+
+        // Generate tome choices (2-4 options)
+        const tomeUpgrades = this.tomeSystem.getRandomTomes(4);
+
+        // Convert tomes to upgrade format
+        const tomeChoices = tomeUpgrades.map(tome => {
+            const statLevel = this.tomeSystem.characterStats.getLevel(tome.stat);
+            const displayStr = this.tomeSystem.characterStats.getDisplayString(tome.stat);
+
+            return {
+                type: 'tome',
+                tome: tome,
+                rarity: tome.rarity,
+                icon: tome.icon,
+                name: tome.name,
+                description: tome.description,
+                preview: displayStr
+            };
+        });
+
+        // Combine and shuffle
+        const allChoices = [...weaponUpgrades, ...tomeChoices];
+        const shuffled = allChoices.sort(() => Math.random() - 0.5);
+
+        // Return first 'count' choices
+        return shuffled.slice(0, Math.min(count, shuffled.length));
+    }
+
+    generateWeaponUpgrades() {
+        const upgrades = [];
+
+        // For each weapon slot
+        for (let slotIndex = 0; slotIndex < this.weaponSystem.weaponSlots.length; slotIndex++) {
+            const slot = this.weaponSystem.weaponSlots[slotIndex];
+            const upgradeConfig = Config.weaponUpgrades[slot.type];
+
+            // Get available stats for this weapon
+            const availableStats = Object.keys(upgradeConfig);
+
+            // Randomly select 1-2 stats
+            const numStats = Math.random() < 0.5 ? 1 : 2;
+            const selectedStats = [];
+
+            for (let i = 0; i < numStats && selectedStats.length < availableStats.length; i++) {
+                const remaining = availableStats.filter(s => !selectedStats.includes(s));
+                if (remaining.length === 0) break;
+
+                const randomStat = remaining[Math.floor(Math.random() * remaining.length)];
+                selectedStats.push(randomStat);
+            }
+
+            // Create upgrade choice for these stats
+            if (selectedStats.length > 0) {
+                const upgradeTexts = selectedStats.map(statName => {
+                    const stat = upgradeConfig[statName];
+                    const currentLevel = slot.upgradeLevels[statName];
+                    const currentValue = stat.base + (currentLevel * stat.perLevel);
+                    const nextValue = stat.base + ((currentLevel + 1) * stat.perLevel);
+
+                    let valueStr;
+                    if (stat.perLevel >= 1) {
+                        // Integer values
+                        valueStr = `${Math.floor(currentValue)} → ${Math.floor(nextValue)}`;
+                    } else {
+                        // Decimal values
+                        valueStr = `${currentValue.toFixed(2)} → ${nextValue.toFixed(2)}`;
+                    }
+
+                    return `${stat.desc} ${valueStr}`;
+                }).join('\n');
+
+                const previewText = selectedStats.map(statName => {
+                    const stat = upgradeConfig[statName];
+                    const currentLevel = slot.upgradeLevels[statName];
+                    return `${stat.desc} Lv.${currentLevel} → Lv.${currentLevel + 1}`;
+                }).join(', ');
+
+                // Determine rarity based on number of stats
+                const rarity = selectedStats.length === 1 ? 'common' : 'rare';
+
+                upgrades.push({
+                    type: 'weapon',
+                    slotIndex: slotIndex,
+                    stats: selectedStats,
+                    weaponIcon: Config.weapons[slot.type].icon,
+                    weaponName: Config.weapons[slot.type].name,
+                    weaponLevel: slot.level,
+                    upgradeText: upgradeTexts,
+                    preview: previewText,
+                    rarity: rarity
+                });
+            }
+        }
+
+        return upgrades;
+    }
+
+    selectUpgrade(upgrade) {
+        console.log('[Game] Upgrade selected:', upgrade);
+
+        if (upgrade.type === 'weapon') {
+            // Apply weapon upgrade
+            for (const statName of upgrade.stats) {
+                this.weaponSystem.upgradeWeaponStat(upgrade.slotIndex, statName);
+            }
+        } else if (upgrade.type === 'tome') {
+            // Apply tome
+            this.tomeSystem.applyTome(upgrade.tome);
+        }
 
         // Hide menu
         this.levelUpMenu.style.display = 'none';

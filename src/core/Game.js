@@ -341,8 +341,8 @@ export class Game {
         // Pause game
         this.isPaused = true;
 
-        // Generate upgrade choices (weapon upgrades + tomes)
-        const upgradeChoices = this.generateUpgradeChoices(3);
+        // Generate upgrade choices (weapon upgrades + tomes + new weapons)
+        const upgradeChoices = this.generateUpgradeChoices(4);
 
         if (upgradeChoices.length === 0) {
             console.warn('[Game] No upgrades available, resuming game');
@@ -427,12 +427,40 @@ export class Game {
         // Generate new weapon choices (if slots available)
         const newWeaponChoices = this.generateNewWeaponChoices();
 
-        // Combine and shuffle
-        const allChoices = [...weaponUpgrades, ...tomeChoices, ...newWeaponChoices];
-        const shuffled = allChoices.sort(() => Math.random() - 0.5);
+        // Apply weighted selection (무기 70%, Tome 25%, 새 무기 5%)
+        const weightedPool = [
+            ...weaponUpgrades.map(w => ({ ...w, weight: 0.70 })),
+            ...tomeChoices.map(t => ({ ...t, weight: 0.25 })),
+            ...newWeaponChoices.map(n => ({ ...n, weight: 0.05 }))
+        ];
 
-        // Return first 'count' choices
-        return shuffled.slice(0, Math.min(count, shuffled.length));
+        // Weighted random selection
+        const selected = [];
+        const pool = [...weightedPool];
+
+        for (let i = 0; i < count && pool.length > 0; i++) {
+            // Calculate total weight
+            const totalWeight = pool.reduce((sum, choice) => sum + choice.weight, 0);
+
+            // Random selection based on weight
+            let random = Math.random() * totalWeight;
+            let selectedIndex = 0;
+
+            for (let j = 0; j < pool.length; j++) {
+                random -= pool[j].weight;
+                if (random <= 0) {
+                    selectedIndex = j;
+                    break;
+                }
+            }
+
+            // Add selected choice and remove from pool
+            const choice = pool.splice(selectedIndex, 1)[0];
+            delete choice.weight; // Remove weight property
+            selected.push(choice);
+        }
+
+        return selected;
     }
 
     generateWeaponUpgrades() {

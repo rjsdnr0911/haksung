@@ -489,6 +489,155 @@ export class EffectSystem {
         this.game.camera.position.y += offsetY * 0.01;
     }
 
+    // ========== XP Orb Effects ==========
+
+    createXPOrbEffect(position) {
+        // Small sparkle particles around XP orb
+        const particleSystem = new BABYLON.ParticleSystem(
+            'xpOrbSparkle',
+            8, // Small number
+            this.scene
+        );
+
+        particleSystem.particleTexture = new BABYLON.Texture(
+            'https://playground.babylonjs.com/textures/flare.png',
+            this.scene
+        );
+
+        particleSystem.emitter = position;
+        particleSystem.minEmitBox = new BABYLON.Vector3(-0.2, -0.2, -0.2);
+        particleSystem.maxEmitBox = new BABYLON.Vector3(0.2, 0.2, 0.2);
+
+        // Green sparkles
+        particleSystem.color1 = new BABYLON.Color4(0.2, 1, 0.2, 0.6);
+        particleSystem.color2 = new BABYLON.Color4(0.5, 1, 0.5, 0.3);
+        particleSystem.colorDead = new BABYLON.Color4(0, 0.5, 0, 0);
+
+        particleSystem.minSize = 0.05;
+        particleSystem.maxSize = 0.15;
+
+        particleSystem.minLifeTime = 0.3;
+        particleSystem.maxLifeTime = 0.6;
+
+        particleSystem.emitRate = 10; // Continuous low rate
+        particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ONEONE;
+
+        particleSystem.minEmitPower = 0.5;
+        particleSystem.maxEmitPower = 1.0;
+
+        particleSystem.direction1 = new BABYLON.Vector3(-0.5, 0.5, -0.5);
+        particleSystem.direction2 = new BABYLON.Vector3(0.5, 1, 0.5);
+
+        particleSystem.gravity = new BABYLON.Vector3(0, -2, 0);
+
+        particleSystem.start();
+
+        // Store for cleanup
+        return particleSystem;
+    }
+
+    createXPCollectEffect(position) {
+        // Burst when XP is collected
+        const particleSystem = new BABYLON.ParticleSystem(
+            'xpCollect',
+            20,
+            this.scene
+        );
+
+        particleSystem.particleTexture = new BABYLON.Texture(
+            'https://playground.babylonjs.com/textures/flare.png',
+            this.scene
+        );
+
+        particleSystem.emitter = position.clone();
+        particleSystem.minEmitBox = new BABYLON.Vector3(-0.3, -0.3, -0.3);
+        particleSystem.maxEmitBox = new BABYLON.Vector3(0.3, 0.3, 0.3);
+
+        // Bright green
+        particleSystem.color1 = new BABYLON.Color4(0.5, 1, 0.5, 0.8);
+        particleSystem.color2 = new BABYLON.Color4(0.8, 1, 0.3, 0.5);
+        particleSystem.colorDead = new BABYLON.Color4(0.2, 0.5, 0, 0);
+
+        particleSystem.minSize = 0.1;
+        particleSystem.maxSize = 0.25;
+
+        particleSystem.minLifeTime = 0.2;
+        particleSystem.maxLifeTime = 0.5;
+
+        particleSystem.emitRate = 100;
+        particleSystem.manualEmitCount = 20;
+        particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ONEONE;
+
+        particleSystem.minEmitPower = 2;
+        particleSystem.maxEmitPower = 4;
+
+        particleSystem.direction1 = new BABYLON.Vector3(-1, 1, -1);
+        particleSystem.direction2 = new BABYLON.Vector3(1, 2, 1);
+
+        particleSystem.gravity = new BABYLON.Vector3(0, -5, 0);
+
+        particleSystem.start();
+
+        setTimeout(() => {
+            particleSystem.stop();
+            setTimeout(() => {
+                particleSystem.dispose();
+            }, 1000);
+        }, 100);
+    }
+
+    // ========== Enemy Death Effects ==========
+
+    createEnemyDeathEffect(position, enemySize = 1.0) {
+        // Death particles
+        const particleSystem = new BABYLON.ParticleSystem(
+            'enemyDeath',
+            30,
+            this.scene
+        );
+
+        particleSystem.particleTexture = new BABYLON.Texture(
+            'https://playground.babylonjs.com/textures/flare.png',
+            this.scene
+        );
+
+        particleSystem.emitter = position.clone();
+        particleSystem.minEmitBox = new BABYLON.Vector3(-0.3, 0, -0.3);
+        particleSystem.maxEmitBox = new BABYLON.Vector3(0.3, 0.5, 0.3);
+
+        // Dark red/orange death
+        particleSystem.color1 = new BABYLON.Color4(0.8, 0.2, 0.1, 0.7);
+        particleSystem.color2 = new BABYLON.Color4(0.5, 0.1, 0.0, 0.5);
+        particleSystem.colorDead = new BABYLON.Color4(0.2, 0.1, 0.0, 0);
+
+        particleSystem.minSize = 0.15 * enemySize;
+        particleSystem.maxSize = 0.35 * enemySize;
+
+        particleSystem.minLifeTime = 0.3;
+        particleSystem.maxLifeTime = 0.7;
+
+        particleSystem.emitRate = 100;
+        particleSystem.manualEmitCount = 30;
+        particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ONEONE;
+
+        particleSystem.minEmitPower = 2;
+        particleSystem.maxEmitPower = 4;
+
+        particleSystem.direction1 = new BABYLON.Vector3(-1, 0.5, -1);
+        particleSystem.direction2 = new BABYLON.Vector3(1, 1.5, 1);
+
+        particleSystem.gravity = new BABYLON.Vector3(0, -8, 0);
+
+        particleSystem.start();
+
+        setTimeout(() => {
+            particleSystem.stop();
+            setTimeout(() => {
+                particleSystem.dispose();
+            }, 1500);
+        }, 100);
+    }
+
     // ========== Cleanup ==========
 
     dispose() {

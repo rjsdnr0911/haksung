@@ -491,6 +491,11 @@ export class WeaponSystem {
     }
 
     onEnemyKilled(enemy) {
+        // Create death effect
+        if (this.game.effectSystem) {
+            this.game.effectSystem.createEnemyDeathEffect(enemy.position, enemy.size || 1.0);
+        }
+
         // Spawn XP orb at enemy position
         this.spawnXPOrb(enemy.position, enemy.xpValue);
 
@@ -518,11 +523,18 @@ export class WeaponSystem {
         material.emissiveColor = new BABYLON.Color3(0.1, 0.5, 0.1);
         orb.material = material;
 
+        // Create sparkle effect
+        let particleSystem = null;
+        if (this.game.effectSystem) {
+            particleSystem = this.game.effectSystem.createXPOrbEffect(orb.position);
+        }
+
         const orbData = {
             mesh: orb,
             position: orb.position.clone(), // 실제 오브 위치 저장
             xpValue: xpValue,
-            isActive: true
+            isActive: true,
+            particleSystem: particleSystem // Store for cleanup
         };
 
         this.game.xpOrbs.push(orbData);

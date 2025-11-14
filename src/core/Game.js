@@ -581,6 +581,21 @@ export class Game {
 
             // Collect XP orb
             if (distance < Config.player.radius + 0.5) {
+                // Create collect effect
+                if (this.effectSystem) {
+                    this.effectSystem.createXPCollectEffect(orb.position);
+                }
+
+                // Clean up particle system
+                if (orb.particleSystem) {
+                    orb.particleSystem.stop();
+                    setTimeout(() => {
+                        if (orb.particleSystem) {
+                            orb.particleSystem.dispose();
+                        }
+                    }, 500);
+                }
+
                 this.player.gainXP(orb.xpValue);
                 orb.mesh.dispose();
                 this.xpOrbs.splice(i, 1);

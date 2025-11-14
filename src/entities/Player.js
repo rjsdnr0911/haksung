@@ -54,6 +54,16 @@ export class Player {
         this.isGrounded = true;
         this.groundLevel = 0; // Ground height at current position
 
+        // 3D Model and Animation System (for Calcium)
+        this.glbModel = null;
+        this.animationGroups = {
+            walking: null,
+            running: null
+        };
+        this.currentAnimation = null;
+        this.currentSpeed = 0; // Track current movement speed
+        this.runningSpeedThreshold = 10; // Speed threshold to switch to running animation
+
         this.createMesh();
 
         if (characterData) {
@@ -79,6 +89,12 @@ export class Player {
         const headColor = visual?.headColor || '#ffcc88';
         const emissiveScale = visual?.emissiveScale || 0.3;
         const accentColor = visual?.accentColor;
+
+        // For Calcium character, try to load 3D GLB model
+        if (this.character?.id === 'calcium') {
+            this.loadCalciumModel(container, radius, height);
+            // Still create fallback procedural mesh (will be hidden if GLB loads successfully)
+        }
 
         // Main body (capsule-like cylinder)
         const body = BABYLON.MeshBuilder.CreateCylinder(
@@ -219,6 +235,184 @@ export class Player {
         console.log('[Player] Procedural character created');
     }
 
+    /**
+     * Load Calcium 3D GLB model with Walking and Running animations
+     */
+    async loadCalciumModel(container, radius, height) {
+        try {
+            // Load Walking animation model
+            const walkingPath = './assets/models/characters/Animation_Walking_withSkin.glb';
+            const runningPath = './assets/models/characters/Animation_Running_withSkin.glb';
+
+            console.log('[Player] Loading Calcium 3D model...');
+
+            // Load Walking model (primary model)
+            BABYLON.SceneLoader.ImportMesh(
+                '',
+                '',
+                walkingPath,
+                this.scene,
+                (meshes, particleSystems, skeletons, animationGroups) => {
+                    console.log('[Player] Walking model loaded successfully');
+
+                    // Store the root mesh
+                    if (meshes.length > 0) {
+                        this.glbModel = meshes[0];
+                        this.glbModel.parent = container;
+
+                        // Scale the model to match character size
+                        const modelScale = this.sizeMultiplier * 0.5; // Adjust scale factor as needed
+                        this.glbModel.scaling = new BABYLON.Vector3(modelScale, modelScale, modelScale);
+
+                        // Position model (adjust Y offset if needed)
+                        this.glbModel.position.y = 0;
+
+                        // Store walking animation
+                        if (animationGroups.length > 0) {
+                            this.animationGroups.walking = animationGroups[0];
+                            this.animationGroups.walking.stop();
+                            console.log('[Player] Walking animation loaded');
+                        }
+
+                        // Hide procedural meshes since we have 3D model
+                        this.hideProceduralMeshes();
+                    }
+
+                    // Load Running animation model (for running animation only)
+                    BABYLON.SceneLoader.ImportMesh(
+                        '',
+                        '',
+                        runningPath,
+                        this.scene,
+                        (runMeshes, runParticleSystems, runSkeletons, runAnimationGroups) => {
+                            console.log('[Player] Running animation loaded');
+
+                            // Hide running model meshes (we only need the animation)
+                            runMeshes.forEach(mesh => {
+                                mesh.isVisible = false;
+                            });
+
+                            // Store running animation
+                            if (runAnimationGroups.length > 0) {
+                                this.animationGroups.running = runAnimationGroups[0];
+                                this.animationGroups.running.stop();
+
+                                // Transfer running animation to walking model's skeleton
+                                if (skeletons.length > 0 && runSkeletons.length > 0) {
+                                    // Link running animation to walking model's skeleton
+                                    this.animationGroups.running.targetedAnimations.forEach(targetAnim => {
+                                        targetAnim.target = skeletons[0].bones.find(
+                                            bone => bone.name === targetAnim.target.name
+                                        ) || targetAnim.target;
+                                    });
+                                }
+
+                                console.log('[Player] Running animation transferred to main model');
+                            }
+
+                            // Start with walking animation
+                            this.playAnimation('walking');
+                        },
+                        null,
+                        (scene, message, exception) => {
+                            console.warn('[Player] Failed to load running animation, using walking only:', message);
+                        }
+                    );
+                },
+                null,
+                (scene, message, exception) => {
+                    console.error('[Player] Failed to load Calcium 3D model:', message);
+                    console.log('[Player] Using procedural fallback mesh');
+                }
+            );
+        } catch (error) {
+            console.error('[Player] Error loading Calcium model:', error);
+            console.log('[Player] Using procedural fallback mesh');
+        }
+    }
+
+    /**
+     * Hide procedural meshes when 3D model is loaded
+     */
+    hideProceduralMeshes() {
+        if (this.mesh) {
+            this.mesh.getChildMeshes().forEach(child => {
+                if (child.name !== 'playerContainer') {
+                    child.isVisible = false;
+                }
+            });
+            console.log('[Player] Procedural meshes hidden, using 3D model');
+        }
+    }
+
+    /**
+     * Play a specific animation (walking or running)
+     */
+    playAnimation(animName) {
+        if (!this.animationGroups[animName]) {
+            console.warn(`[Player] Animation '${animName}' not available`);
+            return;
+        }
+
+        // Stop current animation
+        if (this.currentAnimation && this.currentAnimation !== animName) {
+            const prevAnim = this.animationGroups[this.currentAnimation];
+            if (prevAnim) {
+                prevAnim.stop();
+            }
+        }
+
+        // Play new animation
+        const anim = this.animationGroups[animName];
+        if (!anim.isPlaying) {
+            anim.start(true, 1.0, anim.from, anim.to, false); // Loop animation
+            console.log(`[Player] Playing animation: ${animName}`);
+        }
+
+        this.currentAnimation = animName;
+    }
+
+    /**
+     * Update animation based on current speed
+     */
+    updateAnimation() {
+        if (!this.glbModel) return; // No 3D model loaded
+
+        // If not moving, stop animation
+        if (this.currentSpeed < 0.1) {
+            if (this.currentAnimation) {
+                const anim = this.animationGroups[this.currentAnimation];
+                if (anim) {
+                    anim.pause();
+                }
+            }
+            return;
+        }
+
+        // Determine which animation to play based on speed
+        const shouldRun = this.currentSpeed >= this.runningSpeedThreshold;
+        const targetAnim = shouldRun ? 'running' : 'walking';
+
+        // Switch animation if needed
+        if (this.currentAnimation !== targetAnim) {
+            this.playAnimation(targetAnim);
+        } else {
+            // Resume animation if it was paused
+            const anim = this.animationGroups[this.currentAnimation];
+            if (anim && !anim.isPlaying) {
+                anim.play(true);
+            }
+        }
+
+        // Adjust animation speed based on actual movement speed
+        const baseSpeed = shouldRun ? 12 : 6; // Base speeds for running/walking
+        const speedRatio = this.currentSpeed / baseSpeed;
+        const anim = this.animationGroups[this.currentAnimation];
+        if (anim) {
+            anim.speedRatio = Math.max(0.5, Math.min(2.0, speedRatio)); // Clamp between 0.5x and 2.0x
+        }
+    }
+
     createPassiveVisuals(container, radius, height) {
         if (!this.character || !this.character.passive) return;
 
@@ -291,6 +485,9 @@ export class Player {
 
         // Update passive visual effects
         this.updatePassiveVisuals();
+
+        // Store previous position to calculate actual speed
+        const prevPosition = this.position.clone();
 
         // Update position based on input
         if (this.moveInput.x !== 0 || this.moveInput.z !== 0) {
@@ -370,6 +567,15 @@ export class Player {
         this.mesh.position.y = this.position.y;
         this.mesh.position.z = this.position.z;
         this.mesh.rotation.y = this.rotation;
+
+        // Calculate current movement speed for animation
+        const distanceMoved = BABYLON.Vector3.Distance(prevPosition, this.position);
+        this.currentSpeed = deltaTime > 0 ? distanceMoved / deltaTime : 0;
+
+        // Update animation based on speed (for Calcium 3D model)
+        if (this.character?.id === 'calcium') {
+            this.updateAnimation();
+        }
     }
 
     updateGroundHeight() {

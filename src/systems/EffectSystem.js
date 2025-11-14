@@ -20,7 +20,7 @@ export class EffectSystem {
 
     // ========== Muzzle Flash Effects ==========
 
-    createMuzzleFlash(position, color, size = 0.5) {
+    createMuzzleFlash(position, color, size = 0.3) {
         const flash = BABYLON.MeshBuilder.CreateSphere(
             'flash',
             { diameter: size, segments: 8 },
@@ -29,18 +29,14 @@ export class EffectSystem {
         flash.position = position.clone();
 
         const material = new BABYLON.StandardMaterial('flashMat', this.scene);
-        material.emissiveColor = BABYLON.Color3.FromHexString(color);
+        material.emissiveColor = BABYLON.Color3.FromHexString(color).scale(0.5); // 50% 강도로 감소
         material.disableLighting = true;
         flash.material = material;
 
-        // Glow effect
-        const glow = new BABYLON.GlowLayer('glow', this.scene);
-        glow.intensity = 2;
-
         // Animate and dispose
-        let alpha = 1.0;
+        let alpha = 0.8;
         const fadeInterval = setInterval(() => {
-            alpha -= 0.1;
+            alpha -= 0.2;
             material.alpha = alpha;
 
             if (alpha <= 0) {
@@ -53,10 +49,10 @@ export class EffectSystem {
     // ========== Weapon Trail Effects ==========
 
     createProjectileTrail(projectile, color) {
-        // Create particle system for projectile trail
+        // Create particle system for projectile trail (간소화)
         const particleSystem = new BABYLON.ParticleSystem(
             'projectileTrail',
-            50,
+            20, // 50 -> 20으로 감소
             this.scene
         );
 
@@ -71,25 +67,25 @@ export class EffectSystem {
         particleSystem.minEmitBox = new BABYLON.Vector3(0, 0, 0);
         particleSystem.maxEmitBox = new BABYLON.Vector3(0, 0, 0);
 
-        // Colors
+        // Colors (투명도 낮춤)
         const color3 = BABYLON.Color3.FromHexString(color);
-        particleSystem.color1 = new BABYLON.Color4(color3.r, color3.g, color3.b, 1);
-        particleSystem.color2 = new BABYLON.Color4(color3.r, color3.g, color3.b, 0.5);
+        particleSystem.color1 = new BABYLON.Color4(color3.r, color3.g, color3.b, 0.6); // 1 -> 0.6
+        particleSystem.color2 = new BABYLON.Color4(color3.r, color3.g, color3.b, 0.3); // 0.5 -> 0.3
         particleSystem.colorDead = new BABYLON.Color4(color3.r, color3.g, color3.b, 0);
 
-        // Size
-        particleSystem.minSize = 0.1;
-        particleSystem.maxSize = 0.3;
+        // Size (크기 감소)
+        particleSystem.minSize = 0.05; // 0.1 -> 0.05
+        particleSystem.maxSize = 0.15; // 0.3 -> 0.15
 
         // Life time
         particleSystem.minLifeTime = 0.1;
-        particleSystem.maxLifeTime = 0.3;
+        particleSystem.maxLifeTime = 0.2; // 0.3 -> 0.2
 
-        // Emission rate
-        particleSystem.emitRate = 100;
+        // Emission rate (감소)
+        particleSystem.emitRate = 30; // 100 -> 30
 
-        // Blend mode
-        particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD;
+        // Blend mode (NORMAL로 변경해서 덜 밝게)
+        particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ONEONE;
 
         // Speed
         particleSystem.minEmitPower = 0;
@@ -115,22 +111,22 @@ export class EffectSystem {
     // ========== Explosion Effects ==========
 
     createExplosionParticles(position, color, radius) {
-        // Explosion flash
+        // Explosion flash (간소화)
         const flash = BABYLON.MeshBuilder.CreateSphere(
             'explosionFlash',
-            { diameter: radius * 3, segments: 16 },
+            { diameter: radius * 2, segments: 12 }, // 3 -> 2, segments 16 -> 12
             this.scene
         );
         flash.position = position.clone();
 
         const flashMat = new BABYLON.StandardMaterial('explosionFlashMat', this.scene);
-        flashMat.emissiveColor = new BABYLON.Color3(1, 0.8, 0.3);
-        flashMat.alpha = 0.8;
+        flashMat.emissiveColor = new BABYLON.Color3(1, 0.6, 0.2).scale(0.6); // 강도 감소
+        flashMat.alpha = 0.5; // 0.8 -> 0.5
         flash.material = flashMat;
 
         // Animate flash
         let scale = 0.1;
-        let alpha = 0.8;
+        let alpha = 0.5;
         const flashInterval = setInterval(() => {
             scale += 0.3;
             alpha -= 0.15;
@@ -141,12 +137,12 @@ export class EffectSystem {
                 clearInterval(flashInterval);
                 flash.dispose();
             }
-        }, 30);
+        }, 40); // 30 -> 40으로 느리게
 
-        // Particle system for debris
+        // Particle system for debris (대폭 감소)
         const particleSystem = new BABYLON.ParticleSystem(
             'explosion',
-            200,
+            60, // 200 -> 60으로 감소
             this.scene
         );
 
@@ -156,32 +152,32 @@ export class EffectSystem {
         );
 
         particleSystem.emitter = position.clone();
-        particleSystem.minEmitBox = new BABYLON.Vector3(-0.5, -0.5, -0.5);
-        particleSystem.maxEmitBox = new BABYLON.Vector3(0.5, 0.5, 0.5);
+        particleSystem.minEmitBox = new BABYLON.Vector3(-0.3, -0.3, -0.3);
+        particleSystem.maxEmitBox = new BABYLON.Vector3(0.3, 0.3, 0.3);
 
-        // Colors - orange to red to black
-        particleSystem.color1 = new BABYLON.Color4(1, 0.8, 0.2, 1);
-        particleSystem.color2 = new BABYLON.Color4(1, 0.3, 0, 0.8);
+        // Colors - orange to red to black (투명도 감소)
+        particleSystem.color1 = new BABYLON.Color4(1, 0.8, 0.2, 0.7); // 1 -> 0.7
+        particleSystem.color2 = new BABYLON.Color4(1, 0.3, 0, 0.5); // 0.8 -> 0.5
         particleSystem.colorDead = new BABYLON.Color4(0.2, 0.2, 0.2, 0);
 
-        // Size
-        particleSystem.minSize = 0.3;
-        particleSystem.maxSize = 0.8;
+        // Size (크기 감소)
+        particleSystem.minSize = 0.2; // 0.3 -> 0.2
+        particleSystem.maxSize = 0.5; // 0.8 -> 0.5
 
         // Life time
-        particleSystem.minLifeTime = 0.3;
-        particleSystem.maxLifeTime = 0.6;
+        particleSystem.minLifeTime = 0.2; // 0.3 -> 0.2
+        particleSystem.maxLifeTime = 0.4; // 0.6 -> 0.4
 
-        // Emission rate
-        particleSystem.emitRate = 500;
-        particleSystem.manualEmitCount = 200;
+        // Emission rate (대폭 감소)
+        particleSystem.emitRate = 150; // 500 -> 150
+        particleSystem.manualEmitCount = 60; // 200 -> 60
 
         // Blend mode
-        particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD;
+        particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ONEONE; // ADD -> ONEONE
 
         // Speed
-        particleSystem.minEmitPower = radius * 5;
-        particleSystem.maxEmitPower = radius * 10;
+        particleSystem.minEmitPower = radius * 4;
+        particleSystem.maxEmitPower = radius * 8;
         particleSystem.updateSpeed = 0.02;
 
         // Direction
@@ -197,8 +193,8 @@ export class EffectSystem {
             particleSystem.stop();
             setTimeout(() => {
                 particleSystem.dispose();
-            }, 1000);
-        }, 100);
+            }, 800);
+        }, 80);
     }
 
     // ========== Hit Effects ==========
@@ -244,7 +240,7 @@ export class EffectSystem {
     createCriticalParticles(position) {
         const particleSystem = new BABYLON.ParticleSystem(
             'critical',
-            30,
+            15, // 30 -> 15로 감소
             this.scene
         );
 
@@ -257,21 +253,21 @@ export class EffectSystem {
         particleSystem.minEmitBox = new BABYLON.Vector3(-0.2, -0.2, -0.2);
         particleSystem.maxEmitBox = new BABYLON.Vector3(0.2, 0.2, 0.2);
 
-        // Gold color for crits
-        particleSystem.color1 = new BABYLON.Color4(1, 1, 0, 1);
-        particleSystem.color2 = new BABYLON.Color4(1, 0.8, 0, 0.8);
+        // Gold color for crits (투명도 감소)
+        particleSystem.color1 = new BABYLON.Color4(1, 1, 0, 0.7); // 1 -> 0.7
+        particleSystem.color2 = new BABYLON.Color4(1, 0.8, 0, 0.5); // 0.8 -> 0.5
         particleSystem.colorDead = new BABYLON.Color4(1, 0.5, 0, 0);
 
-        particleSystem.minSize = 0.2;
-        particleSystem.maxSize = 0.4;
+        particleSystem.minSize = 0.15; // 0.2 -> 0.15
+        particleSystem.maxSize = 0.3; // 0.4 -> 0.3
 
         particleSystem.minLifeTime = 0.2;
-        particleSystem.maxLifeTime = 0.5;
+        particleSystem.maxLifeTime = 0.4; // 0.5 -> 0.4
 
-        particleSystem.emitRate = 100;
-        particleSystem.manualEmitCount = 30;
+        particleSystem.emitRate = 50; // 100 -> 50
+        particleSystem.manualEmitCount = 15; // 30 -> 15
 
-        particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD;
+        particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ONEONE; // ADD -> ONEONE
 
         particleSystem.minEmitPower = 3;
         particleSystem.maxEmitPower = 6;
@@ -394,13 +390,13 @@ export class EffectSystem {
         ring.position.y = 0.1;
 
         const ringMat = new BABYLON.StandardMaterial('levelUpRingMat', this.scene);
-        ringMat.emissiveColor = new BABYLON.Color3(0, 1, 1);
-        ringMat.alpha = 1.0;
+        ringMat.emissiveColor = new BABYLON.Color3(0, 1, 1).scale(0.6); // 강도 60%로 감소
+        ringMat.alpha = 0.8; // 1.0 -> 0.8
         ring.material = ringMat;
 
         // Animate ring
         let scale = 1;
-        let alpha = 1;
+        let alpha = 0.8; // 1 -> 0.8로 시작
         const ringInterval = setInterval(() => {
             scale += 0.5;
             alpha -= 0.1;
@@ -413,10 +409,10 @@ export class EffectSystem {
             }
         }, 50);
 
-        // Particle burst
+        // Particle burst (간소화)
         const particleSystem = new BABYLON.ParticleSystem(
             'levelUp',
-            100,
+            40, // 100 -> 40
             this.scene
         );
 
@@ -429,20 +425,20 @@ export class EffectSystem {
         particleSystem.minEmitBox = new BABYLON.Vector3(-0.5, 0, -0.5);
         particleSystem.maxEmitBox = new BABYLON.Vector3(0.5, 0, 0.5);
 
-        particleSystem.color1 = new BABYLON.Color4(0, 1, 1, 1);
-        particleSystem.color2 = new BABYLON.Color4(0, 0.5, 1, 0.8);
+        particleSystem.color1 = new BABYLON.Color4(0, 1, 1, 0.6); // 1 -> 0.6
+        particleSystem.color2 = new BABYLON.Color4(0, 0.5, 1, 0.5); // 0.8 -> 0.5
         particleSystem.colorDead = new BABYLON.Color4(0, 0, 0.5, 0);
 
-        particleSystem.minSize = 0.3;
-        particleSystem.maxSize = 0.6;
+        particleSystem.minSize = 0.2; // 0.3 -> 0.2
+        particleSystem.maxSize = 0.4; // 0.6 -> 0.4
 
-        particleSystem.minLifeTime = 0.5;
-        particleSystem.maxLifeTime = 1.0;
+        particleSystem.minLifeTime = 0.4; // 0.5 -> 0.4
+        particleSystem.maxLifeTime = 0.8; // 1.0 -> 0.8
 
-        particleSystem.emitRate = 200;
-        particleSystem.manualEmitCount = 100;
+        particleSystem.emitRate = 80; // 200 -> 80
+        particleSystem.manualEmitCount = 40; // 100 -> 40
 
-        particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD;
+        particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ONEONE; // ADD -> ONEONE
 
         particleSystem.minEmitPower = 5;
         particleSystem.maxEmitPower = 10;

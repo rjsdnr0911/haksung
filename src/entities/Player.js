@@ -261,11 +261,34 @@ export class Player {
                         this.glbModel.parent = container;
 
                         // Scale the model to match character size
-                        const modelScale = this.sizeMultiplier * 0.5; // Adjust scale factor as needed
+                        const modelScale = this.sizeMultiplier * 1.0; // Increased from 0.5
                         this.glbModel.scaling = new BABYLON.Vector3(modelScale, modelScale, modelScale);
 
                         // Position model (adjust Y offset if needed)
                         this.glbModel.position.y = 0;
+
+                        // Force all meshes to be visible and opaque
+                        meshes.forEach(mesh => {
+                            mesh.isVisible = true;
+                            mesh.visibility = 1.0;
+
+                            // Fix materials if they exist
+                            if (mesh.material) {
+                                // Ensure material is opaque
+                                mesh.material.alpha = 1.0;
+                                mesh.material.transparencyMode = BABYLON.Material.MATERIAL_OPAQUE;
+
+                                // Enable backface culling
+                                mesh.material.backFaceCulling = true;
+
+                                // If it's a PBR material, ensure proper setup
+                                if (mesh.material.albedoTexture) {
+                                    mesh.material.albedoTexture.hasAlpha = false;
+                                }
+
+                                console.log(`[Player] Fixed material for mesh: ${mesh.name}`);
+                            }
+                        });
 
                         // Store walking animation
                         if (animationGroups.length > 0) {
@@ -276,6 +299,8 @@ export class Player {
 
                         // Hide procedural meshes since we have 3D model
                         this.hideProceduralMeshes();
+
+                        console.log(`[Player] Loaded ${meshes.length} meshes for Calcium model`);
                     }
 
                     // Load Running animation model (for running animation only)

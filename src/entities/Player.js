@@ -254,39 +254,85 @@ export class Player {
                 this.scene,
                 (meshes, particleSystems, skeletons, animationGroups) => {
                     console.log('[Player] Walking model loaded successfully');
+                    console.log('[Player] Debug info:', {
+                        meshCount: meshes.length,
+                        skeletonCount: skeletons.length,
+                        animationCount: animationGroups.length,
+                        meshNames: meshes.map(m => m.name)
+                    });
+
+                    // Debug: Print all mesh details
+                    meshes.forEach((mesh, index) => {
+                        console.log(`[Player] Mesh ${index}: ${mesh.name}`, {
+                            isVisible: mesh.isVisible,
+                            visibility: mesh.visibility,
+                            hasMaterial: !!mesh.material,
+                            materialName: mesh.material?.name,
+                            position: mesh.position,
+                            scaling: mesh.scaling,
+                            isEnabled: mesh.isEnabled()
+                        });
+                    });
 
                     // Store the root mesh
                     if (meshes.length > 0) {
-                        this.glbModel = meshes[0];
+                        // Find the actual root transform node or mesh
+                        const rootNode = meshes.find(m => !m.parent || m.parent === this.scene) || meshes[0];
+                        this.glbModel = rootNode;
                         this.glbModel.parent = container;
 
                         // Scale the model to match character size
-                        const modelScale = this.sizeMultiplier * 1.0; // Increased from 0.5
+                        const modelScale = this.sizeMultiplier * 1.0;
                         this.glbModel.scaling = new BABYLON.Vector3(modelScale, modelScale, modelScale);
 
                         // Position model (adjust Y offset if needed)
                         this.glbModel.position.y = 0;
 
+                        console.log(`[Player] Root mesh set to: ${this.glbModel.name}`);
+
                         // Force all meshes to be visible and opaque
                         meshes.forEach(mesh => {
+                            // Skip root transform nodes that don't have geometry
+                            if (mesh.getTotalVertices && mesh.getTotalVertices() === 0) {
+                                console.log(`[Player] Skipping empty mesh: ${mesh.name}`);
+                                return;
+                            }
+
                             mesh.isVisible = true;
                             mesh.visibility = 1.0;
+                            mesh.isPickable = false; // Don't interfere with raycasts
 
                             // Fix materials if they exist
                             if (mesh.material) {
-                                // Ensure material is opaque
-                                mesh.material.alpha = 1.0;
-                                mesh.material.transparencyMode = BABYLON.Material.MATERIAL_OPAQUE;
+                                const mat = mesh.material;
 
-                                // Enable backface culling
-                                mesh.material.backFaceCulling = true;
-
-                                // If it's a PBR material, ensure proper setup
-                                if (mesh.material.albedoTexture) {
-                                    mesh.material.albedoTexture.hasAlpha = false;
+                                // Check if material has transparency issues
+                                if (mat.needAlphaBlending && mat.needAlphaBlending()) {
+                                    console.warn(`[Player] Material ${mat.name} has alpha blending enabled`);
                                 }
 
-                                console.log(`[Player] Fixed material for mesh: ${mesh.name}`);
+                                // Force opaque rendering
+                                mat.alpha = 1.0;
+                                mat.transparencyMode = BABYLON.Material.MATERIAL_OPAQUE;
+                                mat.backFaceCulling = true;
+                                mat.disableDepthWrite = false;
+
+                                // Fix PBR materials
+                                if (mat.albedoTexture) {
+                                    mat.albedoTexture.hasAlpha = false;
+                                }
+
+                                // Fix transparency in PBR materials
+                                if (mat.transparencyMode !== undefined) {
+                                    mat.transparencyMode = BABYLON.Material.MATERIAL_OPAQUE;
+                                }
+
+                                // Ensure proper rendering order
+                                mat.needDepthPrePass = false;
+
+                                console.log(`[Player] Fixed material for mesh: ${mesh.name} (${mat.getClassName()})`);
+                            } else {
+                                console.warn(`[Player] Mesh ${mesh.name} has no material!`);
                             }
                         });
 

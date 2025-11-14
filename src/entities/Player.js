@@ -42,20 +42,47 @@ export class Player {
         this.mesh = container;
 
         try {
-            // Load the walking animation GLB model
+            // Load the GLB model
+            // Try vampire first, fallback to character-soldier for testing
+            let modelFile = 'd8dae9e60016_A_stylized_3D_vampire_charac_0_glb.glb';
+            let modelPath = 'assets/models/characters/';
+
+            // Check if vampire file exists, otherwise use character-soldier for testing
             const result = await BABYLON.SceneLoader.ImportMeshAsync(
                 '',
-                'assets/models/characters/',
-                'Animation_Walking_withSkin.glb',
+                modelPath,
+                modelFile,
                 this.scene
-            );
+            ).catch(async () => {
+                console.log('[Player] Vampire model not found, trying character-soldier.glb');
+                return await BABYLON.SceneLoader.ImportMeshAsync(
+                    '',
+                    modelPath,
+                    'character-soldier.glb',
+                    this.scene
+                );
+            });
 
             console.log('[Player] GLB model loaded successfully');
+            console.log('[Player] Meshes loaded:', result.meshes.length);
+            console.log('[Player] Animation groups:', result.animationGroups.length);
 
             // Parent all loaded meshes to the container
-            result.meshes.forEach(mesh => {
+            result.meshes.forEach((mesh, index) => {
+                console.log(`[Player] Mesh ${index}: ${mesh.name}, visible: ${mesh.isVisible}`);
                 if (mesh !== result.meshes[0]) { // Skip root mesh
                     mesh.parent = container;
+                    // Ensure mesh is visible
+                    mesh.isVisible = true;
+
+                    // Fix material if needed
+                    if (mesh.material) {
+                        mesh.material.backFaceCulling = false;
+                        if (mesh.material.alpha !== undefined) {
+                            mesh.material.alpha = 1.0;
+                        }
+                        console.log(`[Player] Material for ${mesh.name}:`, mesh.material.name);
+                    }
                 }
             });
 
@@ -65,6 +92,8 @@ export class Player {
             // Scale the model to match player size
             const scaleFactor = Config.player.height / 2; // Adjust as needed
             container.scaling = new BABYLON.Vector3(scaleFactor, scaleFactor, scaleFactor);
+
+            console.log('[Player] Model scaled by factor:', scaleFactor);
 
             // Start playing the walking animation
             if (this.animationGroups && this.animationGroups.length > 0) {
